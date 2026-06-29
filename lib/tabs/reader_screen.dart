@@ -8,7 +8,6 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_windows/webview_windows.dart' as win;
 import '../models/work.dart';
 import '../models/reading_progress.dart';
-import '../models/history_entry.dart';
 import '../providers/storage_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/storage_service.dart';
@@ -1199,46 +1198,17 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   Future<void> _addToHistory(String? chapterName) async {
     final storage = ref.read(storageProvider);
-    final historyBox = storage.settingsBox;
-    
-    final historyList = (historyBox.get('history') as List?)?.map((e) => Map<String, dynamic>.from(e)).toList() ?? [];
-    
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    
-    // Check if there's already an entry for this work today - remove it if so (we'll re-add at top)
-    historyList.removeWhere((entry) {
-      if (entry['workId'] != widget.work.id) return false;
-      final accessedAt = entry['accessedAt'];
-      if (accessedAt == null) return false;
-      try {
-        final entryDate = DateTime.parse(accessedAt.toString());
-        final entryDay = DateTime(entryDate.year, entryDate.month, entryDate.day);
-        return entryDay == today;
-      } catch (_) {
-        return false;
-      }
-    });
-    
-    // Add new entry at the beginning
-    final entry = HistoryEntry(
+    // Funnel through the single StorageService writer so the schema/cap stay
+    // consistent with the library/browse open paths, while still recording the
+    // reading position the reader knows about.
+    await storage.addToHistory(
       workId: widget.work.id,
       title: widget.work.title,
       author: widget.work.author,
       chapterIndex: _currentChapterIndex,
       chapterName: chapterName,
       scrollPosition: _currentScrollPosition,
-      accessedAt: now,
     );
-
-    historyList.insert(0, entry.toJson());
-    
-    // Keep only last 100 entries
-    if (historyList.length > 100) {
-      historyList.removeRange(100, historyList.length);
-    }
-
-    await historyBox.put('history', historyList);
   }
 
   Future<void> _markAsCompleted() async {

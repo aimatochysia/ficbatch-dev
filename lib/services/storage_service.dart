@@ -206,9 +206,11 @@ class StorageService {
       entry.value.removeWhere((id) => id == workId);
     }
 
+    // Removing a work from its last category leaves it in the library as an
+    // uncategorized work (it shows under "All"); it is no longer silently
+    // deleted. Use deleteWork() explicitly to remove a work entirely.
     if (categories.isEmpty) {
       await _saveCategoryMap(map);
-      await deleteWork(workId);
       return;
     }
 
@@ -251,52 +253,54 @@ class StorageService {
 
   // History management methods
   
-  /// Add or update a history entry for a work
-  /// If the same work was accessed on the same day, update it (move to top of that day)
-  /// If different day, add a new entry
+  /// Maximum number of history entries to retain.
+  static const int historyCap = 500;
+
+  /// Add or update a single history entry for a work. This is the one and only
+  /// history writer — both the library/browse open paths and the reader funnel
+  /// through here so the schema and cap stay consistent.
+  ///
+  /// If the same work was accessed earlier the same day, the prior entry is
+  /// replaced and moved to the top. Optional reading-position fields
+  /// (chapter index/name, scroll position) are recorded when available so the
+  /// History tab can show where the reader left off.
   Future<void> addToHistory({
     required String workId,
     required String title,
     required String author,
+    int? chapterIndex,
+    String? chapterName,
+    double? scrollPosition,
   }) async {
     final historyList = await getHistory();
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    
-    // Check if there's already an entry for this work today
-    final existingTodayIndex = historyList.indexWhere((entry) {
-      final entryDate = DateTime(
-        entry['accessedAt'] != null 
-            ? DateTime.parse(entry['accessedAt']).year 
-            : now.year,
-        entry['accessedAt'] != null 
-            ? DateTime.parse(entry['accessedAt']).month 
-            : now.month,
-        entry['accessedAt'] != null 
-            ? DateTime.parse(entry['accessedAt']).day 
-            : now.day,
-      );
-      return entry['workId'] == workId && entryDate == today;
+
+    // Remove any earlier entry for this work from today; we re-add at the top.
+    historyList.removeWhere((entry) {
+      if (entry['workId'] != workId) return false;
+      final accessedAt = entry['accessedAt'];
+      if (accessedAt == null) return false;
+      final parsed = DateTime.tryParse(accessedAt.toString());
+      if (parsed == null) return false;
+      final entryDay = DateTime(parsed.year, parsed.month, parsed.day);
+      return entryDay == today;
     });
-    
-    if (existingTodayIndex >= 0) {
-      // Update existing entry - move to top of today's entries
-      historyList.removeAt(existingTodayIndex);
-    }
-    
-    // Add new entry at the beginning
+
     historyList.insert(0, {
       'workId': workId,
       'title': title,
       'author': author,
       'accessedAt': now.toIso8601String(),
+      if (chapterIndex != null) 'chapterIndex': chapterIndex,
+      if (chapterName != null) 'chapterName': chapterName,
+      if (scrollPosition != null) 'scrollPosition': scrollPosition,
     });
-    
-    // Limit history to 500 entries
-    if (historyList.length > 500) {
-      historyList.removeRange(500, historyList.length);
+
+    if (historyList.length > historyCap) {
+      historyList.removeRange(historyCap, historyList.length);
     }
-    
+
     await settingsBox.put('history', historyList);
   }
   
@@ -345,12 +349,12 @@ Future<void> migrateHive() async {
         final normalized = Work.fromJson(map);
         await box.put(key, normalized);
       } catch (e) {
-        print('Migration failed for $key: $e');
+        debugPrint('Migration failed for $key: $e');
       }
     } else if (raw is Work) {
       continue;
     } else {
-      print('Unexpected data type for key $key: ${raw.runtimeType}');
+      debugPrint('Unexpected data type for key $key: ${raw.runtimeType}');
     }
   }
   } catch (e, stackTrace) {

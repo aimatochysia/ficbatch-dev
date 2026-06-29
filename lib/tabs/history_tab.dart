@@ -194,7 +194,8 @@ class _HistoryTabState extends ConsumerState<HistoryTab> {
     final title = entry['title'] as String;
     final author = entry['author'] as String;
     final accessedAt = DateTime.parse(entry['accessedAt']);
-    
+    final chapterName = entry['chapterName'] as String?;
+
     return ListTile(
       title: Text(
         title,
@@ -202,7 +203,9 @@ class _HistoryTabState extends ConsumerState<HistoryTab> {
         overflow: TextOverflow.ellipsis,
       ),
       subtitle: Text(
-        'by $author',
+        chapterName != null && chapterName.isNotEmpty
+            ? 'by $author • $chapterName'
+            : 'by $author',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
