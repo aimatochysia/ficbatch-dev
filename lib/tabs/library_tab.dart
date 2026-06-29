@@ -11,6 +11,18 @@ import '../models/work.dart';
 import 'reader_screen.dart';
 import 'settings_tab.dart' show libraryGridColumnsProvider, libraryViewModeProvider, LibraryViewMode;
 
+/// Sort options for the library grid/list.
+enum LibrarySort {
+  recentlyAdded('Recently added'),
+  titleAsc('Title (A–Z)'),
+  lastRead('Last read'),
+  wordCount('Word count'),
+  favoritesFirst('Favorites first');
+
+  final String label;
+  const LibrarySort(this.label);
+}
+
 class LibraryTab extends ConsumerStatefulWidget {
   const LibraryTab({super.key});
 
@@ -22,7 +34,236 @@ class _LibraryTabState extends ConsumerState<LibraryTab> {
   bool _isDownloading = false;
   String _downloadProgress = '';
   bool _isSyncing = false;
-  
+
+  // Search / sort / multi-select state.
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  LibrarySort _sortMode = LibrarySort.recentlyAdded;
+  bool _selectionMode = false;
+  final Set<String> _selectedIds = <String>{};
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  /// Filter the supplied works by the current search query, then sort them by
+  /// the active sort mode. Pure transformation used for whatever category is
+  /// being displayed.
+  List<Work> _applySearchAndSort(List<Work> works) {
+    final query = _searchQuery.trim().toLowerCase();
+    var result = works;
+    if (query.isNotEmpty) {
+      result = works.where((w) {
+        if (w.title.toLowerCase().contains(query)) return true;
+        if (w.author.toLowerCase().contains(query)) return true;
+        return w.tags.any((t) => t.toLowerCase().contains(query));
+      }).toList();
+    } else {
+      result = List<Work>.from(works);
+    }
+
+    int byDateDesc(DateTime? a, DateTime? b) {
+      if (a == null && b == null) return 0;
+      if (a == null) return 1;
+      if (b == null) return -1;
+      return b.compareTo(a);
+    }
+
+    switch (_sortMode) {
+      case LibrarySort.recentlyAdded:
+        result.sort((a, b) => byDateDesc(a.userAddedDate, b.userAddedDate));
+        break;
+      case LibrarySort.titleAsc:
+        result.sort(
+            (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+        break;
+      case LibrarySort.lastRead:
+        result.sort((a, b) => byDateDesc(
+            a.readingProgress.lastReadAt ?? a.lastUserOpened,
+            b.readingProgress.lastReadAt ?? b.lastUserOpened));
+        break;
+      case LibrarySort.wordCount:
+        result.sort((a, b) => (b.wordsCount ?? 0).compareTo(a.wordsCount ?? 0));
+        break;
+      case LibrarySort.favoritesFirst:
+        result.sort((a, b) {
+          if (a.isFavorite == b.isFavorite) {
+            return byDateDesc(a.userAddedDate, b.userAddedDate);
+          }
+          return a.isFavorite ? -1 : 1;
+        });
+        break;
+    }
+    return result;
+  }
+
+  void _enterSelection(String workId) {
+    setState(() {
+      _selectionMode = true;
+      _selectedIds.add(workId);
+    });
+  }
+
+  void _exitSelection() {
+    setState(() {
+      _selectionMode = false;
+      _selectedIds.clear();
+    });
+  }
+
+  void _toggleSelect(String workId) {
+    setState(() {
+      if (_selectedIds.contains(workId)) {
+        _selectedIds.remove(workId);
+        if (_selectedIds.isEmpty) _selectionMode = false;
+      } else {
+        _selectedIds.add(workId);
+      }
+    });
+  }
+
+  List<Work> _selectedWorks(List<Work> all) =>
+      all.where((w) => _selectedIds.contains(w.id)).toList();
+
+  Future<void> _bulkDelete(List<Work> all) async {
+    final selected = _selectedWorks(all);
+    if (selected.isEmpty) return;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove Works'),
+        content: Text('Remove ${selected.length} work(s) from your library?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Remove')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    final storage = ref.read(storageProvider);
+    for (final w in selected) {
+      await storage.deleteWork(w.id);
+    }
+    if (mounted) {
+      _exitSelection();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Removed ${selected.length} work(s)')),
+      );
+    }
+  }
+
+  Future<void> _bulkDownload(List<Work> all) async {
+    final selected = _selectedWorks(all);
+    if (selected.isEmpty) return;
+    _exitSelection();
+    await _downloadCategory('selection', selected);
+  }
+
+  Future<void> _bulkMove(List<Work> all) async {
+    final selected = _selectedWorks(all);
+    if (selected.isEmpty) return;
+    final storage = ref.read(storageProvider);
+    final allCats = List<String>.from(await storage.getCategories());
+    final chosen = <String>{};
+    final newCatCtrl = TextEditingController();
+
+    if (!mounted) return;
+    final apply = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: Text('Move ${selected.length} work(s) to…'),
+          content: SizedBox(
+            width: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (allCats.isEmpty)
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text('No categories yet. Add one below.'),
+                  ),
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: allCats.map((c) {
+                      return CheckboxListTile(
+                        dense: true,
+                        title: Text(c),
+                        value: chosen.contains(c),
+                        onChanged: (v) => setDialogState(() {
+                          if (v == true) {
+                            chosen.add(c);
+                          } else {
+                            chosen.remove(c);
+                          }
+                        }),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                const Divider(),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: newCatCtrl,
+                        decoration: const InputDecoration(
+                            labelText: 'New category', isDense: true),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: () async {
+                        final name = newCatCtrl.text.trim();
+                        if (name.isEmpty) return;
+                        await storage.addCategory(name);
+                        setDialogState(() {
+                          allCats.add(name);
+                          chosen.add(name);
+                          newCatCtrl.clear();
+                        });
+                      },
+                      child: const Text('Add'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Move')),
+          ],
+        ),
+      ),
+    );
+    newCatCtrl.dispose();
+    if (apply != true) return;
+
+    for (final w in selected) {
+      await storage.setCategoriesForWork(w.id, Set<String>.from(chosen));
+    }
+    if (mounted) {
+      _exitSelection();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(
+                'Moved ${selected.length} work(s) to ${chosen.isEmpty ? 'no category' : chosen.join(', ')}')),
+      );
+    }
+  }
+
   Future<void> _syncCategory(String category, List<Work> works) async {
     if (_isSyncing || works.isEmpty) return;
     
@@ -562,55 +803,122 @@ class _LibraryTabState extends ConsumerState<LibraryTab> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      const Text('Library', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      const Spacer(),
-                      PopupMenuButton<String>(
-                        icon: const Icon(Icons.more_vert),
-                        onSelected: (value) async {
-                          if (value == 'add') {
-                            await _showAddCategoryDialog(context);
-                          } else if (value == 'manage') {
-                            await _showManageCategoriesDialog(context);
-                          } else if (value == 'sort') {
-                            await _showSortCategoriesDialog(context);
-                          }
-                        },
-                        itemBuilder: (context) => [
-                          const PopupMenuItem(
-                            value: 'add',
-                            child: Row(
-                              children: [
+                  if (_selectionMode)
+                    _buildSelectionBar(
+                      worksAsync.maybeWhen(
+                        data: (w) => w,
+                        orElse: () => const <Work>[],
+                      ),
+                    )
+                  else
+                    Row(
+                      children: [
+                        const Text('Library',
+                            style: TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold)),
+                        const Spacer(),
+                        PopupMenuButton<String>(
+                          icon: const Icon(Icons.more_vert),
+                          onSelected: (value) async {
+                            if (value == 'add') {
+                              await _showAddCategoryDialog(context);
+                            } else if (value == 'manage') {
+                              await _showManageCategoriesDialog(context);
+                            } else if (value == 'sort') {
+                              await _showSortCategoriesDialog(context);
+                            } else if (value == 'select') {
+                              setState(() => _selectionMode = true);
+                            }
+                          },
+                          itemBuilder: (context) => [
+                            const PopupMenuItem(
+                              value: 'select',
+                              child: Row(children: [
+                                Icon(Icons.checklist),
+                                SizedBox(width: 8),
+                                Text('Select Works'),
+                              ]),
+                            ),
+                            const PopupMenuItem(
+                              value: 'add',
+                              child: Row(children: [
                                 Icon(Icons.add),
                                 SizedBox(width: 8),
                                 Text('Add Category'),
-                              ],
+                              ]),
                             ),
-                          ),
-                          const PopupMenuItem(
-                            value: 'manage',
-                            child: Row(
-                              children: [
+                            const PopupMenuItem(
+                              value: 'manage',
+                              child: Row(children: [
                                 Icon(Icons.edit),
                                 SizedBox(width: 8),
                                 Text('Manage Categories'),
-                              ],
+                              ]),
                             ),
-                          ),
-                          const PopupMenuItem(
-                            value: 'sort',
-                            child: Row(
-                              children: [
+                            const PopupMenuItem(
+                              value: 'sort',
+                              child: Row(children: [
                                 Icon(Icons.sort),
                                 SizedBox(width: 8),
                                 Text('Sort Categories'),
-                              ],
+                              ]),
                             ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  // Search + sort row
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _searchController,
+                            decoration: InputDecoration(
+                              isDense: true,
+                              prefixIcon: const Icon(Icons.search, size: 20),
+                              hintText: 'Search title, author or tag',
+                              border: const OutlineInputBorder(),
+                              suffixIcon: _searchQuery.isEmpty
+                                  ? null
+                                  : IconButton(
+                                      icon: const Icon(Icons.clear, size: 18),
+                                      onPressed: () {
+                                        _searchController.clear();
+                                        setState(() => _searchQuery = '');
+                                      },
+                                    ),
+                            ),
+                            onChanged: (v) => setState(() => _searchQuery = v),
                           ),
-                        ],
-                      ),
-                    ],
+                        ),
+                        const SizedBox(width: 8),
+                        PopupMenuButton<LibrarySort>(
+                          icon: const Icon(Icons.sort),
+                          tooltip: 'Sort: ${_sortMode.label}',
+                          initialValue: _sortMode,
+                          onSelected: (m) => setState(() => _sortMode = m),
+                          itemBuilder: (context) => LibrarySort.values
+                              .map((m) => PopupMenuItem(
+                                    value: m,
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          m == _sortMode
+                                              ? Icons.radio_button_checked
+                                              : Icons.radio_button_unchecked,
+                                          size: 18,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(m.label),
+                                      ],
+                                    ),
+                                  ))
+                              .toList(),
+                        ),
+                      ],
+                    ),
                   ),
                   // Download progress indicator
                   if (_isDownloading)
@@ -717,9 +1025,50 @@ class _LibraryTabState extends ConsumerState<LibraryTab> {
     );
   }
 
+  /// Top bar shown while in multi-select mode. [all] is the full set of works
+  /// available for bulk operations / select-all.
+  Widget _buildSelectionBar(List<Work> all) {
+    return Row(
+      children: [
+        IconButton(
+          icon: const Icon(Icons.close),
+          tooltip: 'Cancel selection',
+          onPressed: _exitSelection,
+        ),
+        Text('${_selectedIds.length} selected',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        const Spacer(),
+        IconButton(
+          icon: const Icon(Icons.select_all),
+          tooltip: 'Select all',
+          onPressed: () =>
+              setState(() => _selectedIds.addAll(all.map((w) => w.id))),
+        ),
+        IconButton(
+          icon: const Icon(Icons.drive_file_move_outline),
+          tooltip: 'Move to category',
+          onPressed: _selectedIds.isEmpty ? null : () => _bulkMove(all),
+        ),
+        IconButton(
+          icon: const Icon(Icons.download),
+          tooltip: 'Download selected',
+          onPressed: _selectedIds.isEmpty || _isDownloading
+              ? null
+              : () => _bulkDownload(all),
+        ),
+        IconButton(
+          icon: const Icon(Icons.delete_outline),
+          tooltip: 'Remove selected',
+          onPressed: _selectedIds.isEmpty ? null : () => _bulkDelete(all),
+        ),
+      ],
+    );
+  }
+
   Widget _buildCategoryContent(String category, List<Work> works, List<Work> allWorks) {
     final isMobile = Platform.isAndroid || Platform.isIOS;
-    
+    final visible = _applySearchAndSort(works);
+
     Widget buildGrid() {
       return Column(
         children: [
@@ -754,11 +1103,24 @@ class _LibraryTabState extends ConsumerState<LibraryTab> {
                 ],
               ),
             ),
-          Expanded(child: _grid(works)),
+          if (visible.isEmpty)
+            Expanded(
+              child: Center(
+                child: Text(
+                  _searchQuery.isNotEmpty
+                      ? 'No works match "$_searchQuery"'
+                      : 'No works here yet',
+                  style: TextStyle(
+                      color: Theme.of(context).textTheme.bodySmall?.color),
+                ),
+              ),
+            )
+          else
+            Expanded(child: _grid(visible)),
         ],
       );
     }
-    
+
     // Wrap with RefreshIndicator for mobile
     if (isMobile) {
       return RefreshIndicator(
@@ -876,30 +1238,30 @@ class _LibraryTabState extends ConsumerState<LibraryTab> {
     );
   }
   
+  /// Open a work in the reader, recording the access in history first.
+  Future<void> _openWork(Work w) async {
+    final storage = ref.read(storageProvider);
+    await storage.addToHistory(workId: w.id, title: w.title, author: w.author);
+    if (mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => ReaderScreen(work: w)),
+      );
+    }
+  }
+
   /// Build a work card for grid view
   Widget _buildWorkGridItem(BuildContext context, Work w, bool isCompact) {
+    final selected = _selectionMode && _selectedIds.contains(w.id);
     return Card(
+      color: selected ? Theme.of(context).colorScheme.primaryContainer : null,
       child: InkWell(
-        onTap: () async {
-          // Add to history
-          final storage = ref.read(storageProvider);
-          await storage.addToHistory(
-            workId: w.id,
-            title: w.title,
-            author: w.author,
-          );
-          
-          if (context.mounted) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => ReaderScreen(work: w),
-              ),
-            );
-          }
-        },
-        // Long press to show context menu (works on all screens including mobile)
-        onLongPress: () => _showWorkContextMenu(context, w),
+        onTap: () => _selectionMode ? _toggleSelect(w.id) : _openWork(w),
+        // Long press shows the per-work context menu, or toggles selection
+        // while in multi-select mode.
+        onLongPress: () => _selectionMode
+            ? _toggleSelect(w.id)
+            : _showWorkContextMenu(context, w),
         child: Padding(
           padding: EdgeInsets.all(isCompact ? 6.0 : 8.0),
           child: Column(
@@ -907,6 +1269,17 @@ class _LibraryTabState extends ConsumerState<LibraryTab> {
             children: [
               Row(
                 children: [
+                  if (_selectionMode)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: Icon(
+                        selected ? Icons.check_circle : Icons.circle_outlined,
+                        size: 18,
+                        color: selected
+                            ? Theme.of(context).colorScheme.primary
+                            : null,
+                      ),
+                    ),
                   Expanded(
                     child: Text(
                       w.title,
@@ -969,33 +1342,29 @@ class _LibraryTabState extends ConsumerState<LibraryTab> {
   
   /// Build a work item for list view
   Widget _buildWorkListItem(BuildContext context, Work w, bool isCompact) {
+    final selected = _selectionMode && _selectedIds.contains(w.id);
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      color: selected ? Theme.of(context).colorScheme.primaryContainer : null,
       child: InkWell(
-        onTap: () async {
-          // Add to history
-          final storage = ref.read(storageProvider);
-          await storage.addToHistory(
-            workId: w.id,
-            title: w.title,
-            author: w.author,
-          );
-          
-          if (context.mounted) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => ReaderScreen(work: w),
-              ),
-            );
-          }
-        },
-        // Long press to show context menu
-        onLongPress: () => _showWorkContextMenu(context, w),
+        onTap: () => _selectionMode ? _toggleSelect(w.id) : _openWork(w),
+        onLongPress: () => _selectionMode
+            ? _toggleSelect(w.id)
+            : _showWorkContextMenu(context, w),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Row(
             children: [
+              if (_selectionMode)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Icon(
+                    selected ? Icons.check_circle : Icons.circle_outlined,
+                    size: 20,
+                    color:
+                        selected ? Theme.of(context).colorScheme.primary : null,
+                  ),
+                ),
               // Download status indicator
               if (w.isDownloaded)
                 const Padding(
@@ -1033,13 +1402,14 @@ class _LibraryTabState extends ConsumerState<LibraryTab> {
                     style: TextStyle(fontSize: 11, color: Theme.of(context).textTheme.bodySmall?.color),
                   ),
                 ),
-              // More options button
-              IconButton(
-                onPressed: () => _showWorkContextMenu(context, w),
-                icon: const Icon(Icons.more_vert, size: 20),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
+              // More options button (hidden while selecting)
+              if (!_selectionMode)
+                IconButton(
+                  onPressed: () => _showWorkContextMenu(context, w),
+                  icon: const Icon(Icons.more_vert, size: 20),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
             ],
           ),
         ),
