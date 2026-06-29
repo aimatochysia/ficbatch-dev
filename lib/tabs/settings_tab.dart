@@ -552,6 +552,135 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
   }
 
+  /// Edit the default reader appearance. These defaults are stored under the
+  /// `reader_settings` key and read by ReaderScreen each time a work is opened.
+  Future<void> _showReaderSettingsDialog() async {
+    final storage = ref.read(storageProvider);
+    final raw = storage.settingsBox.get('reader_settings');
+    final settings =
+        raw != null ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+
+    double fontSize = (settings['fontSize'] ?? 16.0).toDouble();
+    double lineHeight = (settings['lineHeight'] ?? 1.5).toDouble();
+    String fontFamily = settings['fontFamily'] ?? 'Default';
+    String readingTheme = settings['readingTheme'] ?? 'default';
+    bool chapterJump = settings['chapterJump'] ?? true;
+    bool autosave = settings['autosave'] ?? true;
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Font & Reader Settings'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: StatefulBuilder(
+            builder: (ctx, setDialogState) => SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(
+                    title: const Text('Font Size'),
+                    subtitle: Slider(
+                      value: fontSize,
+                      min: 12,
+                      max: 32,
+                      divisions: 20,
+                      label: fontSize.round().toString(),
+                      onChanged: (v) => setDialogState(() => fontSize = v),
+                    ),
+                    trailing: Text('${fontSize.round()}'),
+                  ),
+                  ListTile(
+                    title: const Text('Line Height'),
+                    subtitle: Slider(
+                      value: lineHeight,
+                      min: 1.0,
+                      max: 2.5,
+                      divisions: 15,
+                      label: lineHeight.toStringAsFixed(1),
+                      onChanged: (v) => setDialogState(() => lineHeight = v),
+                    ),
+                    trailing: Text(lineHeight.toStringAsFixed(1)),
+                  ),
+                  ListTile(
+                    title: const Text('Font Family'),
+                    trailing: DropdownButton<String>(
+                      value: fontFamily,
+                      onChanged: (v) =>
+                          setDialogState(() => fontFamily = v ?? 'Default'),
+                      items: const [
+                        DropdownMenuItem(
+                            value: 'Default', child: Text('Default')),
+                        DropdownMenuItem(value: 'Serif', child: Text('Serif')),
+                        DropdownMenuItem(
+                            value: 'Sans-serif', child: Text('Sans-serif')),
+                        DropdownMenuItem(
+                            value: 'Monospace', child: Text('Monospace')),
+                      ],
+                    ),
+                  ),
+                  ListTile(
+                    title: const Text('Reading Theme'),
+                    subtitle: const Text('Sepia overrides the app light/dark'),
+                    trailing: DropdownButton<String>(
+                      value: readingTheme,
+                      onChanged: (v) =>
+                          setDialogState(() => readingTheme = v ?? 'default'),
+                      items: const [
+                        DropdownMenuItem(
+                            value: 'default',
+                            child: Text('Follow app theme')),
+                        DropdownMenuItem(value: 'sepia', child: Text('Sepia')),
+                      ],
+                    ),
+                  ),
+                  SwitchListTile(
+                    title: const Text('Chapter Jump Button'),
+                    value: chapterJump,
+                    onChanged: (v) => setDialogState(() => chapterJump = v),
+                  ),
+                  SwitchListTile(
+                    title: const Text('Autosave Reading Progress'),
+                    value: autosave,
+                    onChanged: (v) => setDialogState(() => autosave = v),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (saved == true) {
+      await storage.settingsBox.put('reader_settings', {
+        'fontSize': fontSize,
+        'lineHeight': lineHeight,
+        'fontFamily': fontFamily,
+        'readingTheme': readingTheme,
+        'chapterJump': chapterJump,
+        'autosave': autosave,
+        // Preserve any scrollSpeed already stored (set from the reader).
+        'scrollSpeed': (settings['scrollSpeed'] ?? 1.0),
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Reader settings saved')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = ref.watch(themeProvider);
@@ -820,14 +949,9 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
               leading: const Icon(Icons.text_fields),
               title: const Text('Font & Reader Settings'),
               subtitle: const Text(
-                'Reader font size, line height, justification',
+                'Default font size, line height, font family, reading theme',
               ),
-              onTap: () {
-                // TODO: Open reader settings dialog
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Reader settings coming soon')),
-                );
-              },
+              onTap: _showReaderSettingsDialog,
             ),
           ],
         ),

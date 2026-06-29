@@ -39,6 +39,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   bool _autosaveEnabled = true;
   double _fontSize = 16.0;
   double _scrollSpeed = 1.0; // 1.0 is default, 0.5 is slower, 2.0 is faster
+  double _lineHeight = 1.5;
+  String _fontFamily = 'Default'; // Default | Serif | Sans-serif | Monospace
+  String _readingTheme = 'default'; // 'default' (follow app theme) | 'sepia'
+  bool _chapterJumpEnabled = true;
   DateTime? _lastSaveTime;
   bool _hasUnsavedChanges = false;
   bool get _isDesktop => Platform.isWindows || Platform.isLinux || Platform.isMacOS;
@@ -112,6 +116,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         _fontSize = (settings['fontSize'] ?? 16.0).toDouble();
         _autosaveEnabled = settings['autosave'] ?? true;
         _scrollSpeed = (settings['scrollSpeed'] ?? 1.0).toDouble();
+        _lineHeight = (settings['lineHeight'] ?? 1.5).toDouble();
+        _fontFamily = settings['fontFamily'] ?? 'Default';
+        _readingTheme = settings['readingTheme'] ?? 'default';
+        _chapterJumpEnabled = settings['chapterJump'] ?? true;
       });
     }
   }
@@ -122,7 +130,74 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       'fontSize': _fontSize,
       'autosave': _autosaveEnabled,
       'scrollSpeed': _scrollSpeed,
+      'lineHeight': _lineHeight,
+      'fontFamily': _fontFamily,
+      'readingTheme': _readingTheme,
+      'chapterJump': _chapterJumpEnabled,
     });
+  }
+
+  /// Map the font-family choice to a CSS value, or null to leave the page
+  /// default in place.
+  String? _fontFamilyCss() {
+    switch (_fontFamily) {
+      case 'Serif':
+        return 'Georgia, "Times New Roman", serif';
+      case 'Sans-serif':
+        return '"Helvetica Neue", Arial, sans-serif';
+      case 'Monospace':
+        return '"Courier New", monospace';
+      default:
+        return null;
+    }
+  }
+
+  /// Apply theme (app light/dark or sepia), text styling, and — on desktop —
+  /// scroll speed, in the right order. Used after page load and whenever a
+  /// reader setting changes.
+  Future<void> _applyAppearance() async {
+    if (_readingTheme == 'sepia') {
+      await _applyReadingTheme();
+    } else {
+      await _applyThemeStyles();
+      await _applyReadingTheme(); // clears any sepia overlay
+    }
+    await _applyFontSize();
+    if (_isDesktop) await _applyScrollSpeed();
+  }
+
+  /// Inject (or remove) a sepia reading overlay. When the reading theme is not
+  /// sepia this removes the overlay so the app light/dark theme shows through.
+  Future<void> _applyReadingTheme() async {
+    if (_controller == null && _winController == null) return;
+    final sepia = _readingTheme == 'sepia';
+    final js = sepia
+        ? '''
+      (function() {
+        var id = '__fb_reading_theme_style';
+        var ex = document.getElementById(id);
+        if (ex) ex.remove();
+        var s = document.createElement('style');
+        s.id = id;
+        s.textContent = 'html, body, #workskin, .userstuff { background: #f4ecd8 !important; color: #5b4636 !important; } a, a:visited { color: #1c5e8a !important; } * { background-color: transparent !important; }';
+        (document.head || document.documentElement).appendChild(s);
+      })();
+    '''
+        : '''
+      (function() {
+        var ex = document.getElementById('__fb_reading_theme_style');
+        if (ex) ex.remove();
+      })();
+    ''';
+    try {
+      if (_isWindows && _winController != null) {
+        await _winController!.executeScript(js);
+      } else if (_controller != null) {
+        await _controller!.runJavaScript(js);
+      }
+    } catch (e) {
+      debugPrint('Error applying reading theme: $e');
+    }
   }
 
   void _startAutosaveTimer() {
@@ -430,9 +505,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     if (mounted) {
       await _removeUnwantedElements();
       await _extractChapters();
-      await _applyThemeStyles();
-      await _applyFontSize();
-      if (_isDesktop) await _applyScrollSpeed();
+      await _applyAppearance();
       if (!_isUsingOfflineContent) await _injectNavigationInterceptor();
       await _restoreReadingPosition();
       // Now content is ready to display
@@ -483,9 +556,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
             if (mounted) {
               await _removeUnwantedElements();
               await _extractChapters();
-              await _applyThemeStyles();
-              await _applyFontSize();
-              if (_isDesktop) await _applyScrollSpeed();
+              await _applyAppearance();
               await _restoreReadingPosition();
               // Now content is ready to display
               setState(() {
@@ -749,32 +820,31 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   Future<void> _applyFontSize() async {
     if (_controller == null && _winController == null) return;
 
-    // Apply font size to both online (#workskin) and offline (body) content
+    final ffCss = _fontFamilyCss();
+    final fontFamilyRule = ffCss == null
+        ? ''
+        : 'body, p, div, span, li, blockquote, .userstuff, #workskin { font-family: $ffCss !important; }';
+
+    // Apply font size, line height and font family to both online (#workskin)
+    // and offline (body) content.
     final js = '''
       (function() {
-        const style = document.createElement('style');
-        style.id = '__fb_font_size_style';
-        
-        // Remove previous font size style if exists
         const existingStyle = document.getElementById('__fb_font_size_style');
         if (existingStyle) existingStyle.remove();
-        
+
+        const style = document.createElement('style');
+        style.id = '__fb_font_size_style';
         style.textContent = \`
-          /* Online AO3 content */
-          #workskin {
-            font-size: ${_fontSize}px !important;
-          }
-          /* Offline/downloaded content - apply to body and common text elements */
-          body {
-            font-size: ${_fontSize}px !important;
-          }
+          #workskin { font-size: ${_fontSize}px !important; }
+          body { font-size: ${_fontSize}px !important; }
           p, div, span, li, blockquote, .userstuff {
             font-size: ${_fontSize}px !important;
+            line-height: ${_lineHeight} !important;
           }
-          /* Chapter headings should be larger */
           h1 { font-size: ${_fontSize * 1.5}px !important; }
           h2 { font-size: ${_fontSize * 1.3}px !important; }
           h3 { font-size: ${_fontSize * 1.15}px !important; }
+          $fontFamilyRule
         \`;
         document.head.appendChild(style);
       })();
@@ -1305,84 +1375,138 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Reader Settings'),
-        content: StatefulBuilder(
-          builder: (context, setDialogState) => Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                title: const Text('Font Size'),
-                subtitle: Slider(
-                  value: _fontSize,
-                  min: 12,
-                  max: 32,
-                  divisions: 20,
-                  label: _fontSize.round().toString(),
-                  onChanged: (value) {
-                    setDialogState(() => _fontSize = value);
-                    _applyFontSize();
-                  },
-                ),
-                trailing: SizedBox(
-                  width: 60,
-                  child: TextField(
-                    keyboardType: TextInputType.number,
-                    controller: TextEditingController(
-                      text: _fontSize.round().toString(),
-                    ),
-                    onSubmitted: (value) {
-                      final size = double.tryParse(value);
-                      if (size != null && size >= 12 && size <= 32) {
-                        setDialogState(() => _fontSize = size);
+        content: SizedBox(
+          width: double.maxFinite,
+          child: StatefulBuilder(
+            builder: (context, setDialogState) => SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(
+                    title: const Text('Font Size'),
+                    subtitle: Slider(
+                      value: _fontSize,
+                      min: 12,
+                      max: 32,
+                      divisions: 20,
+                      label: _fontSize.round().toString(),
+                      onChanged: (value) {
+                        setDialogState(() => _fontSize = value);
                         _applyFontSize();
-                      }
-                    },
+                      },
+                    ),
+                    trailing: Text('${_fontSize.round()}'),
                   ),
-                ),
-              ),
-              SwitchListTile(
-                title: const Text('Autosave'),
-                value: _autosaveEnabled,
-                onChanged: (value) {
-                  setDialogState(() => _autosaveEnabled = value);
-                },
-              ),
-              if (_isDesktop)
-                ListTile(
-                  title: const Text('Scroll Speed'),
-                  subtitle: Slider(
-                    value: _scrollSpeed,
-                    min: 0.25,
-                    max: 3.0,
-                    divisions: 11,
-                    label: '${_scrollSpeed.toStringAsFixed(2)}x',
+                  ListTile(
+                    title: const Text('Line Height'),
+                    subtitle: Slider(
+                      value: _lineHeight,
+                      min: 1.0,
+                      max: 2.5,
+                      divisions: 15,
+                      label: _lineHeight.toStringAsFixed(1),
+                      onChanged: (value) {
+                        setDialogState(() => _lineHeight = value);
+                        _applyFontSize();
+                      },
+                    ),
+                    trailing: Text(_lineHeight.toStringAsFixed(1)),
+                  ),
+                  ListTile(
+                    title: const Text('Font Family'),
+                    trailing: DropdownButton<String>(
+                      value: _fontFamily,
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setDialogState(() => _fontFamily = value);
+                        _applyFontSize();
+                      },
+                      items: const [
+                        DropdownMenuItem(
+                            value: 'Default', child: Text('Default')),
+                        DropdownMenuItem(value: 'Serif', child: Text('Serif')),
+                        DropdownMenuItem(
+                            value: 'Sans-serif', child: Text('Sans-serif')),
+                        DropdownMenuItem(
+                            value: 'Monospace', child: Text('Monospace')),
+                      ],
+                    ),
+                  ),
+                  ListTile(
+                    title: const Text('Reading Theme'),
+                    subtitle: const Text('Sepia overrides the app light/dark'),
+                    trailing: DropdownButton<String>(
+                      value: _readingTheme,
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setDialogState(() => _readingTheme = value);
+                        _applyAppearance();
+                      },
+                      items: const [
+                        DropdownMenuItem(
+                            value: 'default',
+                            child: Text('Follow app theme')),
+                        DropdownMenuItem(value: 'sepia', child: Text('Sepia')),
+                      ],
+                    ),
+                  ),
+                  SwitchListTile(
+                    title: const Text('Chapter Jump Button'),
+                    subtitle: const Text('Show the chapter navigation button'),
+                    value: _chapterJumpEnabled,
                     onChanged: (value) {
-                      setDialogState(() => _scrollSpeed = value);
-                      _applyScrollSpeed();
+                      setDialogState(() => _chapterJumpEnabled = value);
                     },
                   ),
-                  trailing: Text('${_scrollSpeed.toStringAsFixed(2)}x'),
-                ),
-              ListTile(
-                title: const Text('Theme'),
-                trailing: PopupMenuButton<ThemeMode>(
-                  onSelected: (mode) async {
-                    await ref.read(themeProvider.notifier).setMode(mode);
-                    // Reapply theme styles to webview
-                    await _applyThemeStyles();
-                  },
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(
-                      value: ThemeMode.light,
-                      child: Text('Light'),
+                  SwitchListTile(
+                    title: const Text('Autosave'),
+                    value: _autosaveEnabled,
+                    onChanged: (value) {
+                      setDialogState(() => _autosaveEnabled = value);
+                    },
+                  ),
+                  if (_isDesktop)
+                    ListTile(
+                      title: const Text('Scroll Speed'),
+                      subtitle: Slider(
+                        value: _scrollSpeed,
+                        min: 0.25,
+                        max: 3.0,
+                        divisions: 11,
+                        label: '${_scrollSpeed.toStringAsFixed(2)}x',
+                        onChanged: (value) {
+                          setDialogState(() => _scrollSpeed = value);
+                          _applyScrollSpeed();
+                        },
+                      ),
+                      trailing: Text('${_scrollSpeed.toStringAsFixed(2)}x'),
                     ),
-                    const PopupMenuItem(
-                      value: ThemeMode.dark,
-                      child: Text('Dark'),
+                  ListTile(
+                    title: const Text('App Theme'),
+                    trailing: PopupMenuButton<ThemeMode>(
+                      onSelected: (mode) async {
+                        await ref.read(themeProvider.notifier).setMode(mode);
+                        await _applyAppearance();
+                      },
+                      itemBuilder: (context) => const [
+                        PopupMenuItem(
+                          value: ThemeMode.system,
+                          child: Text('System'),
+                        ),
+                        PopupMenuItem(
+                          value: ThemeMode.light,
+                          child: Text('Light'),
+                        ),
+                        PopupMenuItem(
+                          value: ThemeMode.dark,
+                          child: Text('Dark'),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
         actions: [
@@ -1428,8 +1552,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                 child: const Icon(Icons.arrow_back),
               ),
             ),
-            // Chapter drawer button (only show if there are chapters)
-            if (_chapters.isNotEmpty)
+            // Chapter drawer button (only show if there are chapters and the
+            // chapter-jump button is enabled in reader settings)
+            if (_chapters.isNotEmpty && _chapterJumpEnabled)
               Positioned(
                 top: 64,
                 left: 8,
