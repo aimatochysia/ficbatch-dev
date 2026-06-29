@@ -174,6 +174,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     final js = sepia
         ? '''
       (function() {
+        // Disable any active DarkReader so it does not fight the sepia overlay.
+        try { if (window.DarkReader && DarkReader.disable) DarkReader.disable(); } catch(e) {}
         var id = '__fb_reading_theme_style';
         var ex = document.getElementById(id);
         if (ex) ex.remove();
