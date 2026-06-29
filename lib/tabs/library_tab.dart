@@ -1179,6 +1179,19 @@ class _LibraryTabState extends ConsumerState<LibraryTab> {
           children: [
             ListTile(
               leading: Icon(
+                work.isFavorite ? Icons.star : Icons.star_border,
+                color: work.isFavorite ? Colors.amber : null,
+              ),
+              title: Text(work.isFavorite
+                  ? 'Remove from Favorites'
+                  : 'Add to Favorites'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _toggleFavorite(work);
+              },
+            ),
+            ListTile(
+              leading: Icon(
                 work.isDownloaded ? Icons.download_done : Icons.download,
                 color: work.isDownloaded ? Colors.green : null,
               ),
@@ -1238,6 +1251,12 @@ class _LibraryTabState extends ConsumerState<LibraryTab> {
     );
   }
   
+  /// Toggle a work's favorite flag and persist it.
+  Future<void> _toggleFavorite(Work w) async {
+    final storage = ref.read(storageProvider);
+    await storage.saveWork(w.copyWith(isFavorite: !w.isFavorite));
+  }
+
   /// Open a work in the reader, recording the access in history first.
   Future<void> _openWork(Work w) async {
     final storage = ref.read(storageProvider);
@@ -1291,9 +1310,22 @@ class _LibraryTabState extends ConsumerState<LibraryTab> {
                       ),
                     ),
                   ),
+                  // Favorite toggle (always visible)
+                  GestureDetector(
+                    onTap: () => _toggleFavorite(w),
+                    child: Icon(
+                      w.isFavorite ? Icons.star : Icons.star_border,
+                      size: 16,
+                      color: w.isFavorite ? Colors.amber : null,
+                    ),
+                  ),
                   // Download indicator (always visible)
                   if (w.isDownloaded)
-                    const Icon(Icons.download_done, size: 16, color: Colors.green),
+                    const Padding(
+                      padding: EdgeInsets.only(left: 2),
+                      child: Icon(Icons.download_done,
+                          size: 16, color: Colors.green),
+                    ),
                 ],
               ),
               const SizedBox(height: 4),
@@ -1402,12 +1434,25 @@ class _LibraryTabState extends ConsumerState<LibraryTab> {
                     style: TextStyle(fontSize: 11, color: Theme.of(context).textTheme.bodySmall?.color),
                   ),
                 ),
+              // Favorite toggle
+              if (!_selectionMode)
+                IconButton(
+                  onPressed: () => _toggleFavorite(w),
+                  icon: Icon(
+                    w.isFavorite ? Icons.star : Icons.star_border,
+                    size: 20,
+                    color: w.isFavorite ? Colors.amber : null,
+                  ),
+                  padding: const EdgeInsets.only(left: 4),
+                  constraints: const BoxConstraints(),
+                  tooltip: w.isFavorite ? 'Unfavorite' : 'Favorite',
+                ),
               // More options button (hidden while selecting)
               if (!_selectionMode)
                 IconButton(
                   onPressed: () => _showWorkContextMenu(context, w),
                   icon: const Icon(Icons.more_vert, size: 20),
-                  padding: EdgeInsets.zero,
+                  padding: const EdgeInsets.only(left: 4),
                   constraints: const BoxConstraints(),
                 ),
             ],
