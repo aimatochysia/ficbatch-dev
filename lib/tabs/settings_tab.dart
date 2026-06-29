@@ -701,15 +701,25 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
             ListTile(
               leading: const Icon(Icons.palette),
               title: const Text('Theme'),
-              subtitle: Text(theme == ThemeMode.dark ? 'Dark' : 'Light'),
+              subtitle: Text(
+                theme == ThemeMode.dark
+                    ? 'Dark'
+                    : theme == ThemeMode.light
+                        ? 'Light'
+                        : 'System',
+              ),
               trailing: PopupMenuButton<ThemeMode>(
                 onSelected: themeNotifier.setMode,
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
+                itemBuilder: (context) => const [
+                  PopupMenuItem(
+                    value: ThemeMode.system,
+                    child: Text('System'),
+                  ),
+                  PopupMenuItem(
                     value: ThemeMode.light,
                     child: Text('Light'),
                   ),
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: ThemeMode.dark,
                     child: Text('Dark'),
                   ),

@@ -728,9 +728,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   Future<void> _applyThemeStyles() async {
     if (_controller == null && _winController == null) return;
 
-    // Get the current theme mode
+    // Resolve the current theme mode, mapping System to the device brightness.
     final themeMode = ref.read(themeProvider);
-    final isDark = themeMode == ThemeMode.dark;
+    final isDark = themeMode == ThemeMode.dark ||
+        (themeMode == ThemeMode.system &&
+            WidgetsBinding.instance.platformDispatcher.platformBrightness ==
+                Brightness.dark);
     final mode = isDark ? 'dark' : 'light';
 
     // Use the same DarkReader approach as browse tab
