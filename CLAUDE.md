@@ -105,6 +105,12 @@ flutter build windows --release        # Windows
 
 ## 5. Review findings (state as of this review)
 
+> **Iteration 1 (Phase 0 + Phase 1) is implemented** on
+> `claude/flutter-review-roadmap-160ll5`. The findings below describe the
+> *original* state; see §7 for exactly which ones shipped (Phase 0 items
+> 1–5, 7–11, 20 and Phase 1 items 14–16 plus theme System mode are done).
+> Remaining open items live in §7 Phase 2–4 and `question_2.md`.
+
 Grouped by severity. File references are `path:line`.
 
 ### 5.1 Bugs / correctness
@@ -240,39 +246,40 @@ Phased by priority. Each phase is independently shippable.
 
 ## 7. TODO checklist
 
-Phase 0
-- [ ] Replace broken `test/widget_test.dart`
-- [ ] Complete `Ao3Service` metadata extraction + add User-Agent
-- [ ] Unify history writers
-- [ ] Remove `work_saver.dart` and unused `work_card.dart`
-- [ ] Reconcile `StorageService` vs `LibraryExportService` export paths
-- [ ] Add `flutter analyze` + `flutter test` CI workflow
+Phase 0 — **done (iteration 1)**
+- [x] Replace broken `test/widget_test.dart` (now real unit tests for parsing/serialization/summaries)
+- [x] Complete `Ao3Service` metadata extraction + add User-Agent
+- [x] Unify history writers (single `StorageService.addToHistory`, records chapter info)
+- [x] Remove `work_saver.dart`, unused `work_card.dart`, and dead `HistoryEntry`
+- [x] Reconcile `StorageService` vs `LibraryExportService` export paths (removed the old one)
+- [x] Add `flutter analyze` + `flutter test` CI workflow (`.github/workflows/ci.yml`)
+- [x] Bonus: keep works on empty category (no silent delete); `print` → `debugPrint`
 
-Phase 1
-- [ ] Library search bar
-- [ ] Library sort menu
-- [ ] Library multi-select bulk actions
-- [ ] Favorites star toggle + sort
-- [ ] Reader settings dialog (font/line-height/theme/font-family/chapter-jump)
-- [ ] Theme System mode
+Phase 1 — **done (iteration 1)**
+- [x] Library search bar
+- [x] Library sort menu (recently added / title / last read / word count / favorites first)
+- [x] Library multi-select bulk actions (move / download / remove + select-all)
+- [x] Favorites star toggle + "Favorites first" sort
+- [x] Reader settings dialog (font size / line height / font family / sepia / chapter-jump) wired into the reader and Settings
+- [x] Theme System mode end-to-end
 
-Phase 2
-- [ ] Download folder picker + re-pick
-- [ ] Downloads settings section
-- [ ] Native file export/import
-- [ ] Android 13+ notification permission + manifest
-- [ ] Robust sync date parsing
+Phase 2 (next up — see `question_2.md`)
+- [ ] Download folder picker + re-pick (desktop first)
+- [ ] Downloads settings section (auto-download toggle, throttle selector, clear-all)
+- [ ] Native file export/import (replace the JSON paste box)
+- [ ] Android 13+ notification permission + manifest (`POST_NOTIFICATIONS`, `RECEIVE_BOOT_COMPLETED`)
+- [ ] Robust sync date parsing (reuse the new `Ao3Service` date regex)
 
 Phase 3
 - [ ] Onboarding flow
 - [ ] Duplicate-in-category notice
 - [ ] Reset app data / clear download history
-- [ ] Fix deprecations
+- [ ] Fix deprecations (`withOpacity` → `withValues`)
 
 Phase 4
-- [ ] Unit tests for core logic
+- [x] Unit tests for core logic (parsing/serialization/summaries) — started in iteration 1
 - [ ] Widget tests for tabs
-- [ ] CI version cleanup + dependency modernization
+- [ ] CI version cleanup + dependency modernization (drop unused `xml`, modernize `http`)
 
 ---
 
