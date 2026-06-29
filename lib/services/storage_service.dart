@@ -1,7 +1,5 @@
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:xml/xml.dart';
 import '../models/work.dart';
 import '../models/reading_progress.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -53,52 +51,10 @@ class StorageService {
   Future<void> deleteWork(String id) async => await worksBox.delete(id);
   Future<void> clearAll() async => await worksBox.clear();
 
-  Future<String> exportToJson() async {
-    final works = getAllWorks();
-    final jsonList = works.map((w) => w.toJson()).toList();
-    return const JsonEncoder.withIndent('  ').convert({'works': jsonList});
-  }
-
-  Future<void> importFromJson(String jsonString) async {
-    final data = jsonDecode(jsonString);
-    if (data is! Map || !data.containsKey('works')) return;
-
-    final works = (data['works'] as List)
-        .map((e) => Work.fromJson(Map<String, dynamic>.from(e)))
-        .toList();
-
-    for (final w in works) {
-      await saveWork(w);
-    }
-  }
-
-  Future<String> exportToOpds() async {
-    final works = getAllWorks();
-    final builder = XmlBuilder();
-    builder.processing('xml', 'version="1.0" encoding="UTF-8"');
-    builder.element(
-      'feed',
-      nest: () {
-        builder.element('title', nest: 'AO3 Reader Library');
-        builder.element('updated', nest: DateTime.now().toIso8601String());
-        for (final w in works) {
-          builder.element(
-            'entry',
-            nest: () {
-              builder.element('id', nest: w.id);
-              builder.element('title', nest: w.title);
-              builder.element('author', nest: w.author);
-              builder.element(
-                'updated',
-                nest: w.userAddedDate.toIso8601String(),
-              );
-            },
-          );
-        }
-      },
-    );
-    return builder.buildDocument().toXmlString(pretty: true);
-  }
+  // Library export/import lives in LibraryExportService (the versioned format
+  // that also captures categories, mappings and auto-download flags). The older
+  // StorageService JSON/OPDS exporters were removed to avoid two divergent
+  // export paths.
 
   Future<void> saveAdvancedFilters(Map<String, dynamic> filters) async {
     await settingsBox.put('last_advanced_filters', filters);
