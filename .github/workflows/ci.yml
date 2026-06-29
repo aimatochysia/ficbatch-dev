@@ -1,0 +1,45 @@
+name: CI (analyze & test)
+
+# Quality gate: runs static analysis and the unit/widget test suite on every
+# push and pull request so regressions are caught before a release build.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+  workflow_dispatch:
+
+jobs:
+  analyze-and-test:
+    name: Analyze & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.32.0"
+          channel: stable
+
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: flutter-pub-${{ runner.os }}-${{ hashFiles('pubspec.yaml') }}
+          restore-keys: |
+            flutter-pub-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Verify formatting (non-blocking)
+        run: dart format --output=none --set-exit-if-changed . || true
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test
