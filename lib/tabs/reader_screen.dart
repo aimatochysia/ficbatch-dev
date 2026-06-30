@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io' show Platform, File;
+import 'dart:io' show Platform;
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,7 +7,6 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_windows/webview_windows.dart' as win;
 import '../models/work.dart';
-import '../models/reading_progress.dart';
 import '../providers/storage_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/storage_service.dart';
@@ -43,7 +42,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   String _fontFamily = 'Default'; // Default | Serif | Sans-serif | Monospace
   String _readingTheme = 'default'; // 'default' (follow app theme) | 'sepia'
   bool _chapterJumpEnabled = true;
-  DateTime? _lastSaveTime;
   bool _hasUnsavedChanges = false;
   bool get _isDesktop => Platform.isWindows || Platform.isLinux || Platform.isMacOS;
   
@@ -1267,7 +1265,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
     setState(() {
       _hasUnsavedChanges = false;
-      _lastSaveTime = DateTime.now();
     });
   }
 

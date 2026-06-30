@@ -195,7 +195,9 @@ class BrowseToolbar extends StatelessWidget {
     }
   }
 
-  /// Build the save to library button
+  /// Build the save to library button.
+  // Parked: kept for a future toolbar save action; not currently wired up.
+  // ignore: unused_element
   Widget _buildSaveToLibraryButton(bool isCompact) {
     if (isCompact) {
       return SizedBox(

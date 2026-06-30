@@ -21,7 +21,9 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.32.0"
+          # 3.32.8 bundles Dart 3.8.1, which the project's `sdk: ^3.8.1`
+          # constraint requires (3.32.0 ships Dart 3.8.0 and fails pub get).
+          flutter-version: "3.32.8"
           channel: stable
 
       - name: Cache pub dependencies

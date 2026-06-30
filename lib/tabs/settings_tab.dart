@@ -1,10 +1,8 @@
-import 'dart:io' show Platform, File;
-import 'dart:convert';
+import 'dart:io' show Platform;
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/storage_provider.dart';
 import '../services/sync_service.dart';

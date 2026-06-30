@@ -23,12 +23,10 @@ class _HomeTabState extends ConsumerState<HomeTab> with WidgetsBindingObserver {
   int _libraryCount = 0;
   int _readingStreak = 0;
   bool _checkedInToday = false;
-  DateTime? _lastCheckIn;
-  
+
   // App usage time tracking (in seconds)
   int _appUsageSeconds = 0;
   Timer? _usageTimer;
-  DateTime? _sessionStartTime;
 
   @override
   void initState() {
@@ -56,7 +54,6 @@ class _HomeTabState extends ConsumerState<HomeTab> with WidgetsBindingObserver {
   }
   
   void _startUsageTimer() {
-    _sessionStartTime = DateTime.now();
     _usageTimer?.cancel();
     int secondsSinceLastSave = 0;
     _usageTimer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -136,7 +133,6 @@ class _HomeTabState extends ConsumerState<HomeTab> with WidgetsBindingObserver {
         _libraryCount = works.length;
         _readingStreak = streak;
         _checkedInToday = checkedInToday;
-        _lastCheckIn = lastCheckIn;
         _appUsageSeconds = usageSeconds;
       });
     }
@@ -188,7 +184,6 @@ class _HomeTabState extends ConsumerState<HomeTab> with WidgetsBindingObserver {
       setState(() {
         _checkedInToday = true;
         _readingStreak = currentStreak;
-        _lastCheckIn = now;
       });
       
       String message = 'Check-in complete! ';

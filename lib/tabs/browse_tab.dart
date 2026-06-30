@@ -5,12 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_windows/webview_windows.dart' as win;
 
-import '../providers/theme_provider.dart';
 import '../providers/storage_provider.dart';
 import '../providers/navigation_provider.dart';
 import '../models/work.dart';
 import '../models/reading_progress.dart';
-import '../services/storage_service.dart';
 import '../widgets/advanced_search.dart';
 import 'browse/browse_navigation.dart';
 import 'browse/browse_search.dart';
@@ -41,9 +39,7 @@ class _BrowseTabState extends ConsumerState<BrowseTab> {
   bool _winInitialLoadComplete = false; // Track if initial page load is complete
   bool get _winInited => _winController != null && _winController!.value.isInitialized;
   static const int _browseTabIndex = 3;
-  DateTime? _lastInjectorPing;
   bool get _isDesktop => Platform.isWindows || Platform.isLinux || Platform.isMacOS;
-  bool get _isMobile => Platform.isAndroid || Platform.isIOS;
 
   List<String> _getSavedWorkIds() {
     final storage = ref.read(storageProvider);
@@ -511,6 +507,8 @@ a.tag, .tag { background-color: #2b3134 !important; color: #e8e6e3 !important; }
     });
   }
 
+  // Parked: superseded by the DarkReader bootstrap; kept for reference.
+  // ignore: unused_element
   Future<void> _setThemeInWebView(String mode) async {
     debugPrint(
       '[BrowseTab] _setThemeInWebView skipped; using reinjection path for "$mode"',
@@ -804,6 +802,8 @@ a.tag, .tag { background-color: #2b3134 !important; color: #e8e6e3 !important; }
     }
   }
 
+  // Parked: advanced search is currently launched from browse_search.dart.
+  // ignore: unused_element
   Future<void> _openAdvancedSearch() async {
     final storage = ref.read(storageProvider);
     final lastFilters = await storage.getAdvancedFilters();
@@ -831,6 +831,8 @@ a.tag, .tag { background-color: #2b3134 !important; color: #e8e6e3 !important; }
     }
   }
 
+  // Parked: saved-search UI is not currently wired into the toolbar.
+  // ignore: unused_element
   Future<void> _saveCurrentSearch() async {
     final storage = ref.read(storageProvider);
     final live = await _getCurrentUrl();
@@ -1033,6 +1035,8 @@ a.tag, .tag { background-color: #2b3134 !important; color: #e8e6e3 !important; }
     }
   }
 
+  // Parked: saved-search UI is not currently wired into the toolbar.
+  // ignore: unused_element
   Future<void> _showSavedSearchDialog(
     BuildContext context,
     List<Map<String, dynamic>> saved,
@@ -1092,6 +1096,8 @@ a.tag, .tag { background-color: #2b3134 !important; color: #e8e6e3 !important; }
     );
   }
 
+  // Parked: in-page save-to-library flow handled elsewhere; kept for reference.
+  // ignore: unused_element
   Future<void> _saveToLibrary() async {
     try {
       final url = _isWindows
@@ -1326,7 +1332,6 @@ a.tag, .tag { background-color: #2b3134 !important; color: #e8e6e3 !important; }
         final err = obj['error']?.toString() ?? 'Unknown error';
         if (mounted) _showSnackBar('Failed to save $id: $err');
       } else if (type == 'injectorLog') {
-        _lastInjectorPing = DateTime.now();
         final level = obj['level']?.toString() ?? 'info';
         final msg = obj['msg']?.toString() ?? '';
         final ctx = obj['ctx']?.toString() ?? '';

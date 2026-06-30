@@ -1,9 +1,7 @@
-import 'dart:convert';
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/storage_provider.dart';
-import '../repositories/work_repository.dart';
 import '../services/download_service.dart';
 import '../services/library_export_service.dart';
 import '../services/sync_service.dart';
@@ -97,13 +95,6 @@ class _LibraryTabState extends ConsumerState<LibraryTab> {
         break;
     }
     return result;
-  }
-
-  void _enterSelection(String workId) {
-    setState(() {
-      _selectionMode = true;
-      _selectedIds.add(workId);
-    });
   }
 
   void _exitSelection() {
