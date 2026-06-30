@@ -18,7 +18,7 @@ is **Phase 2 — downloads, storage & sync robustness**. See `CLAUDE.md` §6–�
 
 ## A. Scope & ordering for iteration 2
 
-- [ ] **A. All of Phase 2, split into separate commits (Recommended — keeps the
+- [x] **A. All of Phase 2, split into separate commits (Recommended — keeps the
       release coherent: downloads/storage/sync robustness ship together, and
       per-commit boundaries protect against session cuts like last round.)**
 - [ ] B. Only the download-folder picker + downloads settings (defer sync +
@@ -26,7 +26,7 @@ is **Phase 2 — downloads, storage & sync robustness**. See `CLAUDE.md` §6–�
 - [ ] C. Only sync robustness + Android notifications (defer folder picker).
 - [ ] D. Something else (describe below).
 
-→ ANSWER:
+→ ANSWER: A is fine
 
 ---
 
@@ -35,7 +35,7 @@ is **Phase 2 — downloads, storage & sync robustness**. See `CLAUDE.md` §6–�
 You said folder picking should be "desktop first" since the app is
 cross-platform. How should the re-pickable download folder behave?
 
-- [ ] **A. Desktop only (Windows/macOS/Linux) pick a folder; mobile/iOS keep the
+- [x] **A. Desktop only (Windows/macOS/Linux) pick a folder; mobile/iOS keep the
       app-documents dir (Recommended — `file_picker` directory selection is
       reliable on desktop, while Android/iOS sandbox restrictions make arbitrary
       folders fragile; this matches your "cross-platform first" intent.)**
@@ -43,7 +43,7 @@ cross-platform. How should the re-pickable download folder behave?
       more edge cases, but a user-visible folder everywhere).
 - [ ] C. Desktop folder picker now; add mobile later in a separate iteration.
 
-→ ANSWER:
+→ ANSWER: okay A, but make it trasnferable between devices in multiple platforms
 
 ---
 
@@ -52,14 +52,14 @@ cross-platform. How should the re-pickable download folder behave?
 Today, import requires pasting raw JSON or typing a path
 (`settings_tab.dart`). Export writes a file and shows its path.
 
-- [ ] **A. Replace with native file pickers (save/open dialogs) and keep the
+- [x] **A. Replace with native file pickers (save/open dialogs) and keep the
       paste box as a hidden fallback only if the picker is unavailable
       (Recommended — far better UX and fewer user errors; the fallback avoids
       regressions on any platform where the picker misbehaves.)**
 - [ ] B. Add native pickers but keep the paste box visible as an explicit option.
 - [ ] C. Leave export/import as-is this round.
 
-→ ANSWER:
+→ ANSWER:yep
 
 ---
 
@@ -68,7 +68,7 @@ Today, import requires pasting raw JSON or typing a path
 Update notifications likely never appear on Android 13+ (missing
 `POST_NOTIFICATIONS` permission + runtime request).
 
-- [ ] **A. Add `permission_handler` and request POST_NOTIFICATIONS at the right
+- [x] **A. Add `permission_handler` and request POST_NOTIFICATIONS at the right
       moment, plus manifest fixes (`POST_NOTIFICATIONS`,
       `RECEIVE_BOOT_COMPLETED`) (Recommended — it's the standard, reliable way to
       get runtime permission + reboot rescheduling working; you already approved
@@ -77,7 +77,7 @@ Update notifications likely never appear on Android 13+ (missing
       Android API (no new dependency, slightly less control).
 - [ ] C. Skip notifications this round.
 
-→ ANSWER:
+→ ANSWER: no notes
 
 ---
 
@@ -86,13 +86,13 @@ Update notifications likely never appear on Android 13+ (missing
 `SyncService` reads `dd.status`/`dd.published` text and `DateTime.tryParse`s it,
 which silently fails on AO3's real markup (labels/ranges).
 
-- [ ] **A. Reuse the new `Ao3Service` date regex + share one metadata parser
+- [x] **A. Reuse the new `Ao3Service` date regex + share one metadata parser
       between sync and import (Recommended — single source of truth, and sync
       gets the full updated/word-count baseline it currently lacks.)**
 - [ ] B. Just harden the date regex in `SyncService` without refactoring.
 - [ ] C. Leave sync parsing for a later round.
 
-→ ANSWER:
+→ ANSWER: yep A
 
 ---
 
@@ -104,9 +104,9 @@ which silently fails on AO3's real markup (labels/ranges).
 - [ ] **A. Defer to Phase 3 as planned (Recommended — it's purely cosmetic on the
       current CI Flutter 3.32 where it isn't yet an error; bundling it later
       keeps this round focused on functional robustness.)**
-- [ ] B. Do the `withOpacity` → `withValues` sweep now as part of this round.
+- [x] B. Do the `withOpacity` → `withValues` sweep now as part of this round.
 
-→ ANSWER:
+→ ANSWER: do B
 
 ---
 
