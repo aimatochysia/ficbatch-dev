@@ -97,10 +97,11 @@ flutter build windows --release        # Windows
   with a constructed `StorageService` — always access storage through it.
 - The untyped `settings_box` is the catch-all key/value store. Keys currently in
   use include: `categories_list`, `categories_map`, `history`, `work_updates`,
-  `reader_mode`, `library_grid_columns`, `library_view_mode`, `auto_sync_*`,
-  `sync_interval`, `sync_network_preference`, `last_sync_time`,
-  `auto_download_categories`, `default_category`, `app_usage_seconds`,
-  `check_in_streak`, `last_check_in`.
+  `reader_mode`, `reader_settings`, `library_grid_columns`,
+  `library_view_mode`, `auto_sync_*`, `sync_interval`,
+  `sync_network_preference`, `last_sync_time`, `auto_download_categories`,
+  `auto_download_global`, `download_dir`, `download_throttle_ms`,
+  `default_category`, `app_usage_seconds`, `check_in_streak`, `last_check_in`.
 - Prefer `debugPrint` over `print`.
 - Match the surrounding Material 3 widget style; most lists are
   `ListView`/`GridView` with `Card` items.
@@ -109,11 +110,14 @@ flutter build windows --release        # Windows
 
 ## 5. Review findings (state as of this review)
 
-> **Iteration 1 (Phase 0 + Phase 1) is implemented** on
+> **Iterations 1 + 2 (Phase 0, 1 and 2) are implemented** on
 > `claude/flutter-review-roadmap-160ll5`. The findings below describe the
-> *original* state; see §7 for exactly which ones shipped (Phase 0 items
-> 1–5, 7–11, 20 and Phase 1 items 14–16 plus theme System mode are done).
-> Remaining open items live in §7 Phase 2–4 and `question_2.md`.
+> *original* state; see §7 for exactly what shipped. Done so far: Phase 0
+> items 1–5, 7–11, 20; Phase 1 items 14–16 + System theme; Phase 2 items 6,
+> 13, 17, 19, 23 (folder picker, downloads settings, native import/export,
+> Android notifications, sync hardening, `withOpacity` sweep). A local
+> Flutter SDK + SessionStart hook now make `flutter analyze`/`test` run in
+> web sessions. Remaining open items live in §7 Phase 3–4 and `question_3.md`.
 
 Grouped by severity. File references are `path:line`.
 
@@ -267,23 +271,24 @@ Phase 1 — **done (iteration 1)**
 - [x] Reader settings dialog (font size / line height / font family / sepia / chapter-jump) wired into the reader and Settings
 - [x] Theme System mode end-to-end
 
-Phase 2 (next up — see `question_2.md`)
-- [ ] Download folder picker + re-pick (desktop first)
-- [ ] Downloads settings section (auto-download toggle, throttle selector, clear-all)
-- [ ] Native file export/import (replace the JSON paste box)
-- [ ] Android 13+ notification permission + manifest (`POST_NOTIFICATIONS`, `RECEIVE_BOOT_COMPLETED`)
-- [ ] Robust sync date parsing (reuse the new `Ao3Service` date regex)
+Phase 2 — **done (iteration 2)**
+- [x] Download folder picker + re-pick (desktop; mobile keeps the sandboxed app dir) via `file_picker`, with migration
+- [x] Downloads settings section (global auto-download toggle, throttle selector, clear-all)
+- [x] Native file export/import (save/open dialogs; paste box kept as hidden fallback)
+- [x] Android 13+ notification permission + manifest (`POST_NOTIFICATIONS`, `RECEIVE_BOOT_COMPLETED`, `WAKE_LOCK`) via `permission_handler`
+- [x] Robust sync date parsing — `SyncService` now uses `Ao3Service` and refreshes the full metadata baseline
 
-Phase 3
+Phase 3 (next up — see `question_3.md`)
 - [ ] Onboarding flow
 - [ ] Duplicate-in-category notice
-- [ ] Reset app data / clear download history
-- [ ] Fix deprecations (`withOpacity` → `withValues`)
+- [x] Fix deprecations (`withOpacity` → `withValues`) — done in iteration 2
+- [ ] Reset app data / clear reading history (Clear All Downloads shipped in iteration 2)
 
 Phase 4
 - [x] Unit tests for core logic (parsing/serialization/summaries) — started in iteration 1
 - [ ] Widget tests for tabs
 - [ ] CI version cleanup + dependency modernization (drop unused `xml`, modernize `http`)
+- [x] Flutter SDK + SessionStart hook so analyze/test run in web sessions (iteration 1.5)
 
 ---
 
