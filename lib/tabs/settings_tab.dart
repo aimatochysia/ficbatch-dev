@@ -1,5 +1,7 @@
-import 'dart:io' show Platform;
+import 'dart:io' show Platform, File;
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -323,16 +325,36 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
 
   Future<void> _exportLibrary() async {
     setState(() => _isExporting = true);
-    
+
     try {
       final storage = ref.read(storageProvider);
       final exportService = LibraryExportService(storage);
-      
-      final filePath = await exportService.exportToFile();
-      
-      if (mounted) {
-        _showExportSuccessDialog(filePath);
+      final json = await exportService.exportToJson();
+      final fileName =
+          'ficbatch_library_${DateTime.now().toIso8601String().replaceAll(':', '-').split('.').first}.json';
+
+      // Prefer a native save dialog; fall back to writing to the default
+      // export directory if the picker is unavailable on this platform.
+      String? savedPath;
+      try {
+        savedPath = await FilePicker.saveFile(
+          dialogTitle: 'Save library export',
+          fileName: fileName,
+          bytes: Uint8List.fromList(utf8.encode(json)),
+        );
+        // On desktop the picker returns the chosen path but does not write the
+        // file; do it ourselves. On mobile the bytes are already written.
+        if (savedPath != null &&
+            (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
+          await File(savedPath).writeAsString(json);
+        }
+      } catch (e) {
+        debugPrint('Save dialog unavailable, using default path: $e');
+        savedPath = await exportService.exportToFile();
       }
+
+      if (savedPath == null) return; // user cancelled
+      if (mounted) _showExportSuccessDialog(savedPath);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -388,9 +410,91 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
   }
 
   Future<void> _importLibrary() async {
-    // Show import dialog with text input for JSON
+    String? content;
+    try {
+      final result = await FilePicker.pickFiles(
+        dialogTitle: 'Select library JSON',
+        type: FileType.custom,
+        allowedExtensions: const ['json'],
+        withData: true,
+      );
+      if (result == null) return; // cancelled
+      final picked = result.files.single;
+      if (picked.bytes != null) {
+        content = utf8.decode(picked.bytes!);
+      } else if (picked.path != null) {
+        content = await File(picked.path!).readAsString();
+      }
+    } catch (e) {
+      debugPrint('File picker unavailable, falling back to paste: $e');
+      await _importViaPaste();
+      return;
+    }
+
+    if (content == null || content.isEmpty) return;
+    final mode = await _askImportMode();
+    if (mode == null) return;
+    await _runImport(content, mode);
+  }
+
+  Future<ImportMode?> _askImportMode() {
+    return showDialog<ImportMode>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Import Mode'),
+        content: const Text(
+          '• Merge: add new works, update existing (preserves reading progress)\n'
+          '• Replace: clear the library and import all data',
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, ImportMode.merge),
+              child: const Text('Merge')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, ImportMode.replace),
+              child: const Text('Replace All')),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _runImport(String content, ImportMode mode) async {
+    setState(() => _isImporting = true);
+    try {
+      final storage = ref.read(storageProvider);
+      final exportService = LibraryExportService(storage);
+      final importResult = _isFilePath(content)
+          ? await exportService.importFromFile(content.trim(), mode: mode)
+          : await exportService.importFromJson(content, mode: mode);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Import complete: ${importResult.toSummary()}'),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Import error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isImporting = false);
+      }
+    }
+  }
+
+  /// Fallback import for platforms where the native file picker is unavailable:
+  /// paste the library JSON or a file path.
+  Future<void> _importViaPaste() async {
     final controller = TextEditingController();
-    
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -410,20 +514,10 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
                 controller: controller,
                 maxLines: 10,
                 decoration: const InputDecoration(
-                  hintText: '{"version": 1, "works": [...], ...}\n\nOr paste file path',
+                  hintText:
+                      '{"version": 1, "works": [...], ...}\n\nOr paste file path',
                   border: OutlineInputBorder(),
                 ),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Import mode:',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                '• Merge: Add new works, update existing (preserve reading progress)\n'
-                '• Replace: Clear library and import all data',
-                style: TextStyle(fontSize: 12),
               ),
             ],
           ),
@@ -450,50 +544,13 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
         ],
       ),
     );
-    
+
     controller.dispose();
-    
     if (result == null) return;
-    
     final content = result['content'] as String;
     final mode = result['mode'] as ImportMode;
-    
     if (content.isEmpty) return;
-    
-    setState(() => _isImporting = true);
-    
-    try {
-      final storage = ref.read(storageProvider);
-      final exportService = LibraryExportService(storage);
-      
-      ImportResult importResult;
-      
-      // Check if content is a file path
-      if (_isFilePath(content)) {
-        importResult = await exportService.importFromFile(content.trim(), mode: mode);
-      } else {
-        importResult = await exportService.importFromJson(content, mode: mode);
-      }
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Import complete: ${importResult.toSummary()}'),
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Import error: $e')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isImporting = false);
-      }
-    }
+    await _runImport(content, mode);
   }
 
   bool _isFilePath(String content) {
