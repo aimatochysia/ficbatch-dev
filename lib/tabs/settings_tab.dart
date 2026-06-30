@@ -157,7 +157,13 @@ class SyncSettingsNotifier extends StateNotifier<SyncSettings> {
   Future<void> setAutoSyncEnabled(bool enabled) async {
     state = state.copyWith(autoSyncEnabled: enabled);
     await _storage.settingsBox.put('auto_sync_enabled', enabled);
-    
+
+    // Ask for the notification permission up-front so update alerts can appear
+    // (Android 13+ requires a runtime grant).
+    if (enabled) {
+      await SyncService.ensureNotificationPermission();
+    }
+
     if (Platform.isWindows) {
       // Use Windows in-app timer
       if (enabled) {
@@ -265,8 +271,9 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
 
   Future<void> _performManualSync() async {
     setState(() => _isSyncing = true);
-    
+
     try {
+      await SyncService.ensureNotificationPermission();
       final syncService = SyncService();
       final syncSettings = ref.read(syncSettingsProvider);
       

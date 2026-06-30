@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -137,6 +138,23 @@ class SyncService {
     
     await _notifications.initialize(initSettings);
     _notificationsInitialized = true;
+  }
+
+  /// Ensure the OS notification permission is granted. On Android 13+ this must
+  /// be requested at runtime from a UI context (call when enabling auto-sync or
+  /// on a manual sync); iOS is handled by the notifications plugin at init.
+  /// Returns true if notifications are permitted (or not applicable).
+  static Future<bool> ensureNotificationPermission() async {
+    if (!Platform.isAndroid) return true;
+    try {
+      final status = await Permission.notification.status;
+      if (status.isGranted) return true;
+      final result = await Permission.notification.request();
+      return result.isGranted;
+    } catch (e) {
+      debugPrint('[SyncService] Notification permission request failed: $e');
+      return false;
+    }
   }
 
   /// Initialize background sync
