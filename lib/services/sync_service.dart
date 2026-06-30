@@ -1,13 +1,12 @@
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
-import 'package:html/parser.dart' as html_parser;
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/work.dart';
 import '../models/reading_progress.dart';
+import 'ao3_service.dart';
 import 'storage_service.dart';
 
 /// Sync intervals in hours
@@ -213,29 +212,54 @@ class SyncService {
       
       debugPrint('[SyncService] Starting sync for ${works.length} works');
       
+      final ao3 = Ao3Service();
       for (final work in works) {
         try {
-          final update = await _checkWorkForUpdates(work);
-          if (update != null) {
-            updates.add(update);
-            
-            // Update the work with new data
-            final updatedWork = work.copyWith(
-              updatedAt: update.newUpdatedAt,
-              lastSyncDate: DateTime.now(),
-              hasUpdate: true,
-            );
-            await worksBox.put(work.id, updatedWork);
-          } else {
-            // Update last sync date even if no changes
-            final updatedWork = work.copyWith(lastSyncDate: DateTime.now());
-            await worksBox.put(work.id, updatedWork);
+          // Single shared parser for both import and sync.
+          final meta = await ao3.fetchWorkMetadata(work.id);
+          final newUpdatedAt = (meta['updatedAt'] as DateTime?) ??
+              (meta['publishedAt'] as DateTime?);
+          final oldDate = work.updatedAt;
+          final isUpdate = newUpdatedAt != null &&
+              (oldDate == null ||
+                  _dateOnly(newUpdatedAt).isAfter(_dateOnly(oldDate)));
+
+          // Refresh the metadata baseline from the freshly parsed page so sync
+          // fills in fields that may have been missing or have changed.
+          final tags = meta['tags'] is List
+              ? List<String>.from(meta['tags'] as List)
+              : null;
+          var refreshed = work.copyWith(
+            updatedAt: newUpdatedAt,
+            wordsCount: meta['wordsCount'] as int?,
+            chaptersCount: meta['chaptersCount'] as int?,
+            kudosCount: meta['kudosCount'] as int?,
+            hitsCount: meta['hitsCount'] as int?,
+            commentsCount: meta['commentsCount'] as int?,
+            summary: meta['summary'] as String?,
+            tags: (tags != null && tags.isNotEmpty) ? tags : null,
+            lastSyncDate: DateTime.now(),
+          );
+
+          if (isUpdate) {
+            refreshed = refreshed.copyWith(hasUpdate: true);
+            updates.add(WorkUpdate(
+              workId: work.id,
+              workTitle: work.title,
+              detectedAt: DateTime.now(),
+              oldUpdatedAt: oldDate,
+              newUpdatedAt: newUpdatedAt,
+            ));
+            debugPrint(
+                '[SyncService] Update for "${work.title}": $oldDate -> $newUpdatedAt');
           }
+
+          await worksBox.put(work.id, refreshed);
         } catch (e) {
           debugPrint('[SyncService] Error checking work ${work.id}: $e');
         }
-        
-        // Small delay to avoid rate limiting
+
+        // Small delay to avoid rate limiting.
         await Future.delayed(const Duration(milliseconds: 500));
       }
       
@@ -257,67 +281,6 @@ class SyncService {
     return updates;
   }
 
-  /// Check a single work for updates by fetching from AO3
-  Future<WorkUpdate?> _checkWorkForUpdates(Work work) async {
-    try {
-      final url = 'https://archiveofourown.org/works/${work.id}';
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; FicBatch/1.0)',
-        },
-      ).timeout(const Duration(seconds: 30));
-      
-      if (response.statusCode != 200) {
-        debugPrint('[SyncService] Failed to fetch work ${work.id}: ${response.statusCode}');
-        return null;
-      }
-      
-      final document = html_parser.parse(response.body);
-      
-      // Try to extract the updated date from the page
-      final statusDd = document.querySelector('dd.status');
-      final publishedDd = document.querySelector('dd.published');
-      
-      String? dateText;
-      if (statusDd != null) {
-        dateText = statusDd.text.trim();
-      } else if (publishedDd != null) {
-        dateText = publishedDd.text.trim();
-      }
-      
-      if (dateText == null || dateText.isEmpty) {
-        return null;
-      }
-      
-      // Parse the date (AO3 format: "2025-11-18")
-      final newUpdatedAt = DateTime.tryParse(dateText);
-      if (newUpdatedAt == null) {
-        return null;
-      }
-      
-      // Compare dates - only compare the date part, not time
-      final oldDate = work.updatedAt;
-      final hasUpdate = oldDate == null || 
-          _dateOnly(newUpdatedAt).isAfter(_dateOnly(oldDate));
-      
-      if (hasUpdate) {
-        debugPrint('[SyncService] Update found for "${work.title}": $oldDate -> $newUpdatedAt');
-        return WorkUpdate(
-          workId: work.id,
-          workTitle: work.title,
-          detectedAt: DateTime.now(),
-          oldUpdatedAt: oldDate,
-          newUpdatedAt: newUpdatedAt,
-        );
-      }
-      
-      return null;
-    } catch (e) {
-      debugPrint('[SyncService] Error checking work ${work.id}: $e');
-      return null;
-    }
-  }
 
   DateTime _dateOnly(DateTime dt) => DateTime(dt.year, dt.month, dt.day);
 

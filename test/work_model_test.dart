@@ -53,6 +53,33 @@ void main() {
       expect(favorited.title, 'Keep Me');
       expect(favorited.id, '7');
     });
+
+    test('copyWith refreshes metadata fields (used by sync)', () {
+      final work = Work(
+        id: '9',
+        title: 'Stats',
+        author: 'A',
+        tags: const ['old'],
+        userAddedDate: DateTime.now(),
+        wordsCount: 100,
+        chaptersCount: 1,
+      );
+      final refreshed = work.copyWith(
+        wordsCount: 250,
+        chaptersCount: 3,
+        kudosCount: 42,
+        updatedAt: DateTime.parse('2025-01-01T00:00:00.000'),
+        tags: const ['new'],
+      );
+      expect(refreshed.wordsCount, 250);
+      expect(refreshed.chaptersCount, 3);
+      expect(refreshed.kudosCount, 42);
+      expect(refreshed.updatedAt, DateTime.parse('2025-01-01T00:00:00.000'));
+      expect(refreshed.tags, ['new']);
+      // Unspecified fields are preserved.
+      expect(refreshed.id, '9');
+      expect(refreshed.author, 'A');
+    });
   });
 
   group('ReadingProgress', () {
