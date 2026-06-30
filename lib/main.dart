@@ -9,6 +9,7 @@ import 'providers/navigation_provider.dart';
 import 'providers/storage_provider.dart';
 import 'services/storage_service.dart';
 import 'services/sync_service.dart';
+import 'services/download_service.dart';
 
 import 'tabs/home_tab.dart';
 import 'tabs/library_tab.dart';
@@ -36,6 +37,15 @@ Future<void> main() async {
     // Log the error but continue to show the app
     debugPrint('Storage initialization error: $e');
     debugPrint('Stack trace: $stackTrace');
+  }
+
+  // Apply the configured desktop download folder, if one was picked.
+  try {
+    DownloadService.configureDirectory(
+      storage.settingsBox.get('download_dir') as String?,
+    );
+  } catch (e) {
+    debugPrint('Download folder configuration error: $e');
   }
 
   // Initialize sync service (notifications and background tasks)

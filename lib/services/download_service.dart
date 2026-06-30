@@ -7,15 +7,63 @@ import 'storage_service.dart';
 /// Service for downloading works from AO3
 class DownloadService {
   static const String _ao3DownloadBaseUrl = 'https://archiveofourown.org/downloads';
-  
+
+  /// User-picked download folder (desktop only). When null, downloads go to the
+  /// app documents directory. Set once at startup from the stored setting and
+  /// whenever the folder is re-picked.
+  static String? _customDirPath;
+
+  static bool get _isDesktop =>
+      Platform.isWindows || Platform.isLinux || Platform.isMacOS;
+
+  /// Configure the desktop download folder. Pass null/empty to fall back to the
+  /// app documents directory. Has no effect on mobile, where the sandboxed app
+  /// documents directory is always used (keeps offline works portable).
+  static void configureDirectory(String? path) {
+    _customDirPath = (path != null && path.trim().isNotEmpty) ? path.trim() : null;
+  }
+
+  /// The currently configured custom folder, or null when using the default.
+  static String? get customDirPath => _isDesktop ? _customDirPath : null;
+
   /// Get the downloads directory path
   static Future<Directory> getDownloadsDirectory() async {
+    // Desktop honors a user-picked folder; works are stored as {dir}/{id}.html
+    // so the folder is portable across devices/platforms.
+    if (_isDesktop && _customDirPath != null) {
+      final dir = Directory(_customDirPath!);
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
+      }
+      return dir;
+    }
     final appDir = await getApplicationDocumentsDirectory();
     final downloadsDir = Directory('${appDir.path}/FicBatch/downloads');
     if (!await downloadsDir.exists()) {
       await downloadsDir.create(recursive: true);
     }
     return downloadsDir;
+  }
+
+  /// Copy existing downloaded works (*.html) from [from] into the current
+  /// downloads directory. Returns the number of files migrated.
+  static Future<int> migrateDownloadsFrom(Directory from) async {
+    if (!await from.exists()) return 0;
+    final to = await getDownloadsDirectory();
+    if (from.path == to.path) return 0;
+    int migrated = 0;
+    await for (final entity in from.list()) {
+      if (entity is File && entity.path.endsWith('.html')) {
+        final name = entity.uri.pathSegments.last;
+        try {
+          await entity.copy('${to.path}/$name');
+          migrated++;
+        } catch (e) {
+          debugPrint('[DownloadService] Migrate failed for $name: $e');
+        }
+      }
+    }
+    return migrated;
   }
   
   /// Get the path for a specific work's downloaded file

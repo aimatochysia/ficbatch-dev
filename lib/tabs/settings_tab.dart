@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:file_picker/file_picker.dart';
 import '../providers/theme_provider.dart';
 import '../providers/storage_provider.dart';
 import '../services/sync_service.dart';
@@ -537,6 +538,95 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
     );
   }
 
+  /// Pick a desktop download folder, persist it, and optionally migrate
+  /// existing downloads into it.
+  Future<void> _pickDownloadFolder() async {
+    final storage = ref.read(storageProvider);
+    String? selected;
+    try {
+      selected = await FilePicker.getDirectoryPath(
+          dialogTitle: 'Choose download folder');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Folder picker unavailable: $e')),
+        );
+      }
+      return;
+    }
+    if (selected == null) return; // cancelled
+
+    final oldDir = await DownloadService.getDownloadsDirectory();
+    await storage.settingsBox.put('download_dir', selected);
+    DownloadService.configureDirectory(selected);
+    if (!mounted) return;
+    setState(() {});
+
+    if (oldDir.path == selected) return;
+    final migrate = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Move existing downloads?'),
+        content: Text(
+          'Copy already-downloaded works into the new folder?\n\n'
+          'From: ${oldDir.path}\nTo: $selected',
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Skip')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Move')),
+        ],
+      ),
+    );
+    if (migrate == true) {
+      final count = await DownloadService.migrateDownloadsFrom(oldDir);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Migrated $count download(s)')),
+        );
+      }
+    }
+  }
+
+  /// Delete all downloaded work files and clear their downloaded flags.
+  Future<void> _clearAllDownloads() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Clear All Downloads'),
+        content: const Text(
+          'Delete all downloaded work files? Works stay in your library and '
+          'can be re-downloaded.',
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Clear')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    final count = await DownloadService.clearAllDownloads();
+    final storage = ref.read(storageProvider);
+    for (final w in storage.getAllWorks()) {
+      if (w.isDownloaded) {
+        await storage.saveWork(w.copyWith(isDownloaded: false));
+      }
+    }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Cleared $count download(s)')),
+      );
+    }
+  }
+
   Widget _storageInfoRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -910,9 +1000,92 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
               trailing: const Icon(Icons.chevron_right),
               onTap: _showStorageInfo,
             ),
-            
+
             const Divider(),
-            
+
+            // Downloads Section
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                'Downloads',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey,
+                ),
+              ),
+            ),
+
+            // Download folder (desktop only; mobile uses the sandboxed app dir)
+            if (Platform.isWindows || Platform.isLinux || Platform.isMacOS)
+              ListTile(
+                leading: const Icon(Icons.folder),
+                title: const Text('Download Folder'),
+                subtitle: Text(
+                  DownloadService.customDirPath ?? 'Default app folder',
+                ),
+                trailing: const Icon(Icons.edit),
+                onTap: _pickDownloadFolder,
+              ),
+
+            // Global auto-download toggle
+            Builder(
+              builder: (context) {
+                final storage = ref.read(storageProvider);
+                final enabled = storage.settingsBox
+                        .get('auto_download_global', defaultValue: false) ==
+                    true;
+                return SwitchListTile(
+                  secondary: const Icon(Icons.download_for_offline),
+                  title: const Text('Auto-download new works'),
+                  subtitle:
+                      const Text('Download works automatically when imported'),
+                  value: enabled,
+                  onChanged: (v) async {
+                    await storage.settingsBox.put('auto_download_global', v);
+                    setState(() {});
+                  },
+                );
+              },
+            ),
+
+            // Throttle delay selector
+            Builder(
+              builder: (context) {
+                final storage = ref.read(storageProvider);
+                final raw = storage.settingsBox
+                    .get('download_throttle_ms', defaultValue: 1000);
+                final ms = raw is int ? raw : 1000;
+                return ListTile(
+                  leading: const Icon(Icons.speed),
+                  title: const Text('Download Throttle'),
+                  subtitle: Text('${(ms / 1000).toStringAsFixed(1)}s between downloads'),
+                  trailing: PopupMenuButton<int>(
+                    onSelected: (v) async {
+                      await storage.settingsBox.put('download_throttle_ms', v);
+                      setState(() {});
+                    },
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(value: 500, child: Text('0.5s (faster)')),
+                      PopupMenuItem(value: 1000, child: Text('1s (default)')),
+                      PopupMenuItem(value: 2000, child: Text('2s')),
+                      PopupMenuItem(value: 3000, child: Text('3s (gentler)')),
+                    ],
+                  ),
+                );
+              },
+            ),
+
+            // Clear all downloads
+            ListTile(
+              leading: const Icon(Icons.delete_sweep),
+              title: const Text('Clear All Downloads'),
+              subtitle: const Text('Delete all downloaded work files'),
+              onTap: _clearAllDownloads,
+            ),
+
+            const Divider(),
+
             // Reader Settings Section
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),

@@ -368,7 +368,12 @@ class _LibraryTabState extends ConsumerState<LibraryTab> {
     try {
       int downloaded = 0;
       int failed = 0;
-      
+      final throttleRaw = ref
+          .read(storageProvider)
+          .settingsBox
+          .get('download_throttle_ms', defaultValue: 1000);
+      final throttleMs = throttleRaw is int ? throttleRaw : 1000;
+
       for (int i = 0; i < works.length; i++) {
         final work = works[i];
         
@@ -393,9 +398,9 @@ class _LibraryTabState extends ConsumerState<LibraryTab> {
           failed++;
         }
         
-        // Throttle downloads
+        // Throttle downloads (configurable in Settings → Downloads)
         if (i < works.length - 1) {
-          await Future.delayed(const Duration(milliseconds: 1000));
+          await Future.delayed(Duration(milliseconds: throttleMs));
         }
       }
       

@@ -3,6 +3,7 @@ import '../models/work.dart';
 import '../models/reading_progress.dart';
 import 'storage_service.dart';
 import 'ao3_service.dart';
+import 'download_service.dart';
 import 'library_export_service.dart';
 
 /// Service for batch importing works from multiple AO3 URLs
@@ -133,6 +134,19 @@ class BatchImportService {
         await _storage.saveWork(work);
         await _storage.setCategoriesForWork(workId, {targetCategory});
         results.worksAdded++;
+
+        // Auto-download when the global setting is enabled.
+        if (_storage.settingsBox
+                .get('auto_download_global', defaultValue: false) ==
+            true) {
+          final path = await DownloadService.downloadWork(workId);
+          if (path != null) {
+            await _storage.saveWork(work.copyWith(
+              isDownloaded: true,
+              downloadedAt: DateTime.now(),
+            ));
+          }
+        }
         
         // Throttle to avoid overwhelming AO3
         if (i < workIds.length - 1) {
