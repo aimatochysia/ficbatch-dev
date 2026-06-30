@@ -318,7 +318,7 @@ class _HomeTabState extends ConsumerState<HomeTab> with WidgetsBindingObserver {
               Text(
                 _getMotivationalMessage(),
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurface.withOpacity(0.7),
+                  color: colorScheme.onSurface.withValues(alpha: 0.7),
                 ),
               ),
               const SizedBox(height: 20),
@@ -377,7 +377,7 @@ class _HomeTabState extends ConsumerState<HomeTab> with WidgetsBindingObserver {
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: _checkedInToday 
-                                ? colorScheme.primary.withOpacity(0.2)
+                                ? colorScheme.primary.withValues(alpha: 0.2)
                                 : colorScheme.primaryContainer,
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -408,7 +408,7 @@ class _HomeTabState extends ConsumerState<HomeTab> with WidgetsBindingObserver {
                                     ? 'Come back tomorrow to keep your streak!'
                                     : 'Tap to check in and build your streak',
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurface.withOpacity(0.7),
+                                  color: colorScheme.onSurface.withValues(alpha: 0.7),
                                 ),
                               ),
                             ],
@@ -418,7 +418,7 @@ class _HomeTabState extends ConsumerState<HomeTab> with WidgetsBindingObserver {
                           Icon(
                             Icons.arrow_forward_ios,
                             size: 16,
-                            color: colorScheme.onSurface.withOpacity(0.5),
+                            color: colorScheme.onSurface.withValues(alpha: 0.5),
                           ),
                       ],
                     ),
@@ -447,7 +447,7 @@ class _HomeTabState extends ConsumerState<HomeTab> with WidgetsBindingObserver {
               Text(
                 'Paste multiple AO3 links or work IDs (one per line, or separated by commas/spaces).',
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurface.withOpacity(0.7),
+                  color: colorScheme.onSurface.withValues(alpha: 0.7),
                 ),
               ),
               const SizedBox(height: 12),
@@ -547,7 +547,7 @@ class _HomeTabState extends ConsumerState<HomeTab> with WidgetsBindingObserver {
     final theme = Theme.of(context);
     return Card(
       elevation: 0,
-      color: color.withOpacity(0.1),
+      color: color.withValues(alpha: 0.1),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
         child: Column(
@@ -565,7 +565,7 @@ class _HomeTabState extends ConsumerState<HomeTab> with WidgetsBindingObserver {
             Text(
               label,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.7),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
               ),
             ),
           ],
