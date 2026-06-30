@@ -64,8 +64,12 @@ test/
 
 ## 3. Build, run, test
 
-> A Flutter SDK is **not** installed in the review sandbox; the commands below
-> are the canonical ones for a dev machine / CI.
+> **Flutter on Claude Code on the web:** a SessionStart hook
+> (`.claude/hooks/session-start.sh`) auto-installs Flutter **3.32.8** (Dart
+> 3.8.1, matching `sdk: ^3.8.1`) to `/opt/flutter` and runs `flutter pub get`
+> at session start, so `flutter analyze` / `flutter test` / `build_runner`
+> work in remote sessions. The download happens at most once per cached
+> container image. On a normal dev machine just use a local Flutter 3.32.x.
 
 ```bash
 flutter pub get

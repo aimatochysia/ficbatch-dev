@@ -14,7 +14,7 @@ class Ao3Service {
 
   /// Fetch and parse a work's metadata from its AO3 page.
   ///
-  /// Returns a map with: `title`, `author`, `tags` (List<String>), `summary`,
+  /// Returns a map with: `title`, `author`, `tags` (`List<String>`), `summary`,
   /// `wordsCount`, `chaptersCount`, `kudosCount`, `hitsCount`,
   /// `commentsCount`, `publishedAt` (DateTime?), `updatedAt` (DateTime?) and
   /// the raw `rawHtml`. Missing fields are returned as `null` (or empty list).
