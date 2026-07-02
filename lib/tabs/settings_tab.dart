@@ -596,6 +596,107 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
     );
   }
 
+  /// Clear the reading history list (works and downloads are untouched).
+  Future<void> _clearReadingHistory() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Clear Reading History'),
+        content: const Text(
+            'Delete all reading history entries? Your library, reading '
+            'progress and downloads are not affected.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Clear')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await ref.read(storageProvider).clearHistory();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Reading history cleared')),
+      );
+    }
+  }
+
+  /// Wipe everything: library, categories, history, updates, settings and
+  /// downloaded files. Requires typing RESET to confirm.
+  Future<void> _resetAppData() async {
+    final controller = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Reset App Data'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'This permanently deletes your entire library, categories, '
+                'reading history, update list, settings and all downloaded '
+                'files. This cannot be undone.\n\n'
+                'Type RESET to confirm:',
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: 'RESET',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                onChanged: (_) => setDialogState(() {}),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel')),
+            TextButton(
+              onPressed: controller.text.trim() == 'RESET'
+                  ? () => Navigator.pop(ctx, true)
+                  : null,
+              child: const Text('Reset Everything'),
+            ),
+          ],
+        ),
+      ),
+    );
+    controller.dispose();
+    if (confirmed != true) return;
+
+    try {
+      final storage = ref.read(storageProvider);
+      await DownloadService.clearAllDownloads();
+      await storage.clearAll(); // works box
+      await storage.settingsBox.clear(); // categories, history, settings…
+      DownloadService.configureDirectory(null);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('App data reset. Restart the app to start fresh.'),
+            duration: Duration(seconds: 5),
+          ),
+        );
+        setState(() {});
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Reset error: $e')),
+        );
+      }
+    }
+  }
+
   /// Pick a desktop download folder, persist it, and optionally migrate
   /// existing downloads into it.
   Future<void> _pickDownloadFolder() async {
@@ -1057,6 +1158,27 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
               subtitle: const Text('View storage usage'),
               trailing: const Icon(Icons.chevron_right),
               onTap: _showStorageInfo,
+            ),
+
+            // Clear reading history
+            ListTile(
+              leading: const Icon(Icons.history_toggle_off),
+              title: const Text('Clear Reading History'),
+              subtitle: const Text('Delete the history list only'),
+              onTap: _clearReadingHistory,
+            ),
+
+            // Reset app data (danger)
+            ListTile(
+              leading: Icon(Icons.delete_forever,
+                  color: Theme.of(context).colorScheme.error),
+              title: Text(
+                'Reset App Data',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+              subtitle: const Text(
+                  'Erase library, settings, history and downloads'),
+              onTap: _resetAppData,
             ),
 
             const Divider(),
