@@ -2,7 +2,7 @@ name: Iteration artifacts
 
 # Auto-builds installable artifacts on every push to a working branch so each
 # iteration can be tested on real devices without cutting a release.
-# Android/Windows/Linux/Web build on every push; macOS/iOS are opt-in via
+# Android/Windows/Linux build on every push; macOS/iOS are opt-in via
 # manual dispatch (Apple runners cost 10x Actions minutes and unsigned iOS
 # builds can't be sideloaded anyway — use flutter_build.yml for full releases).
 on:
@@ -85,26 +85,6 @@ jobs:
         with:
           name: ficbatch-linux
           path: ficbatch-linux.zip
-          retention-days: 14
-
-  build-web:
-    name: Web
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version: "3.44.4"
-          channel: stable
-          cache: true
-      - run: flutter pub get
-      - run: flutter build web --release
-      - name: Zip Web build
-        run: zip -r ficbatch-web.zip build/web
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ficbatch-web
-          path: ficbatch-web.zip
           retention-days: 14
 
   build-macos:

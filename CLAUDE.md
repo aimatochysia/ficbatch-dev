@@ -6,9 +6,10 @@ Guidance for Claude (and humans) working in this repository.
 
 ## 1. Project overview
 
-**FicBatch** is a cross‑platform (Android, iOS, Windows, macOS, Linux, Web)
+**FicBatch** is a cross‑platform (Android, iOS, Windows, macOS, Linux)
 Flutter app that acts as a specialized **Archive of Our Own (AO3)** browser and
-reader. Core value: browse/clean AO3, build a local library, download works for
+reader. (Web support was removed in iteration 4.5 — the app's value is the
+local library/offline reading, which a browser tab can't provide.) Core value: browse/clean AO3, build a local library, download works for
 offline reading, sync to detect new chapters, and track reading progress.
 
 - Package name: `ficbatch`

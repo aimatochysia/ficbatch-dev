@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   build-ubuntu:
-    name: Build Android, Web, Linux
+    name: Build Android, Linux
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.set-tag.outputs.tag }}
@@ -102,9 +102,6 @@ jobs:
         if: ${{ steps.validate-keystore.outputs.ok != 'true' }}
         run: flutter build apk --release
 
-      - name: Build Web
-        run: flutter build web --release
-
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
@@ -129,10 +126,9 @@ jobs:
           EOF
           dpkg-deb --build dist/deb/ficbatch ficbatch-linux.deb
 
-      - name: Prepare Web and Android artifacts
+      - name: Prepare Android artifact
         run: |
           cp build/app/outputs/flutter-apk/app-release.apk ficbatch.apk
-          zip -r ficbatch-web.zip build/web
 
       - name: Upload Ubuntu artifacts
         uses: actions/upload-artifact@v4
@@ -140,7 +136,6 @@ jobs:
           name: ubuntu-artifacts
           path: |
             ficbatch.apk
-            ficbatch-web.zip
             ficbatch-linux.deb
           if-no-files-found: error
 
@@ -381,7 +376,6 @@ jobs:
             echo ""
             echo "Included installers/artifacts:"
             echo "- Android: ficbatch.apk"
-            echo "- Web: ficbatch-web.zip"
             echo "- Linux: ficbatch-linux.deb"
             echo "- Windows: ficbatch-windows.exe"
             echo "- macOS: ficbatch-macos.dmg"
