@@ -2,6 +2,14 @@
 cmake_minimum_required(VERSION 3.14)
 project(ficbatch LANGUAGES CXX)
 
+# Newer MSVC toolchains (VS 2026 / MSVC 14.5x) turn <experimental/coroutine>
+# into a hard error (STL1011). webview_windows and
+# flutter_local_notifications_windows still compile with /await + the
+# experimental headers, so silence the error until those plugins migrate to
+# C++20 <coroutine>. Applied at the top level so it propagates to all plugin
+# subprojects.
+add_compile_definitions(_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)
+
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
 set(BINARY_NAME "ficbatch")
