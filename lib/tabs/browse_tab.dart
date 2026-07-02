@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
@@ -36,6 +37,7 @@ class _BrowseTabState extends ConsumerState<BrowseTab> {
   String? _pendingThemeMode;
   bool _pageReady = false;
   bool _coverVisible = false;
+  Timer? _loadWatchdog;
   bool _winInitialLoadComplete = false; // Track if initial page load is complete
   bool get _winInited => _winController != null && _winController!.value.isInitialized;
   static const int _browseTabIndex = 3;
@@ -92,6 +94,7 @@ class _BrowseTabState extends ConsumerState<BrowseTab> {
 
   Future<void> _initWebView() async {
     setState(() => _isLoading = true);
+    _armLoadWatchdog(timeout: const Duration(seconds: 15));
     try {
       if (_isWindows) {
         _winController = win.WebviewController();
@@ -118,26 +121,23 @@ class _BrowseTabState extends ConsumerState<BrowseTab> {
               if (loading) _coverVisible = true;
             });
           }
+          if (loading) _armLoadWatchdog();
           if (!loading) {
+            // Reveal the page as soon as the fast style injections are done;
+            // heavier enhancements (buttons, diagnostics) run after reveal so
+            // a slow or failing injection can never keep the screen blank.
             try {
-              final probe = await _winController!.executeScript('1+1');
-              debugPrint('[BrowseTab] Windows JS probe ok: $probe');
+              await _injectEarlyStyle();
+              await _injectThemeStyle();
             } catch (e) {
-              debugPrint('⚠️ Windows JS probe failed: $e');
+              debugPrint('⚠️ Windows style injection failed: $e');
+            } finally {
+              await _updateCurrentUrl();
+              _reveal();
+              _winInitialLoadComplete = true;
             }
-            await _injectEarlyStyle();
-            await _injectThemeStyle();
-            await _applyScrollSpeed();
-            await _diagnoseListingDom('pre-inject (Windows)');
-            await injectListingButtons(
-              isWindows: _isWindows,
-              winController: _winController,
-              controller: _controller,
-              dartDebugPrint: debugPrint,
-              savedWorkIds: _getSavedWorkIds(),
-            );
-            Future.delayed(const Duration(milliseconds: 800), () async {
-              if (!mounted) return;
+            try {
+              await _applyScrollSpeed();
               await injectListingButtons(
                 isWindows: _isWindows,
                 winController: _winController,
@@ -145,20 +145,23 @@ class _BrowseTabState extends ConsumerState<BrowseTab> {
                 dartDebugPrint: debugPrint,
                 savedWorkIds: _getSavedWorkIds(),
               );
-            });
-            if (_pendingThemeMode != null) {
-              _pendingThemeMode = null;
-              await _injectThemeStyle();
-            }
-            await _updateCurrentUrl();
-            if (mounted) {
-              setState(() {
-                _isLoading = false;
-                _readyToShow = true;
-                _winInitialLoadComplete = true;
+              Future.delayed(const Duration(milliseconds: 800), () async {
+                if (!mounted) return;
+                await injectListingButtons(
+                  isWindows: _isWindows,
+                  winController: _winController,
+                  controller: _controller,
+                  dartDebugPrint: debugPrint,
+                  savedWorkIds: _getSavedWorkIds(),
+                );
               });
+              if (_pendingThemeMode != null) {
+                _pendingThemeMode = null;
+                await _injectThemeStyle();
+              }
+            } catch (e) {
+              debugPrint('⚠️ Windows post-reveal injection failed: $e');
             }
-            _pulseCover();
           }
         });
         await _winController!.loadUrl('https://archiveofourown.org/');
@@ -225,30 +228,31 @@ class _BrowseTabState extends ConsumerState<BrowseTab> {
                   _readyToShow = false;
                   _pageReady = false;
                 });
+                _armLoadWatchdog();
                 _pulseCover();
-                await _injectEarlyStyle();
-                await _injectThemeStyle();
+                try {
+                  await _injectEarlyStyle();
+                  await _injectThemeStyle();
+                } catch (e) {
+                  debugPrint('⚠️ Early style injection failed: $e');
+                }
               },
               onPageFinished: (url) async {
-                try {
-                  final res = await c.runJavaScriptReturningResult('1+1');
-                  debugPrint('[BrowseTab] Mobile JS probe ok: $res');
-                } catch (e) {
-                  debugPrint('⚠️ Mobile JS probe failed: $e');
-                }
+                // Reveal as soon as the theme style is in (the early style was
+                // already injected at onPageStarted); enhancements follow.
                 _pageReady = true;
-                await _injectThemeStyle();
-                await _applyScrollSpeed();
-                await _diagnoseListingDom('pre-inject (Mobile)');
-                await injectListingButtons(
-                  isWindows: _isWindows,
-                  winController: _winController,
-                  controller: _controller,
-                  dartDebugPrint: debugPrint,
-                  savedWorkIds: _getSavedWorkIds(),
-                );
-                Future.delayed(const Duration(milliseconds: 800), () async {
-                  if (!mounted) return;
+                try {
+                  await _injectThemeStyle();
+                } catch (e) {
+                  debugPrint('⚠️ Mobile theme injection failed: $e');
+                } finally {
+                  if (mounted) {
+                    setState(() => _currentUrl = url);
+                  }
+                  _reveal();
+                }
+                try {
+                  await _applyScrollSpeed();
                   await injectListingButtons(
                     isWindows: _isWindows,
                     winController: _winController,
@@ -256,19 +260,23 @@ class _BrowseTabState extends ConsumerState<BrowseTab> {
                     dartDebugPrint: debugPrint,
                     savedWorkIds: _getSavedWorkIds(),
                   );
-                });
-                if (_pendingThemeMode != null) {
-                  _pendingThemeMode = null;
-                  await _injectThemeStyle();
-                }
-                if (mounted) {
-                  setState(() {
-                    _currentUrl = url;
-                    _isLoading = false;
-                    _readyToShow = true;
+                  Future.delayed(const Duration(milliseconds: 800), () async {
+                    if (!mounted) return;
+                    await injectListingButtons(
+                      isWindows: _isWindows,
+                      winController: _winController,
+                      controller: _controller,
+                      dartDebugPrint: debugPrint,
+                      savedWorkIds: _getSavedWorkIds(),
+                    );
                   });
+                  if (_pendingThemeMode != null) {
+                    _pendingThemeMode = null;
+                    await _injectThemeStyle();
+                  }
+                } catch (e) {
+                  debugPrint('⚠️ Mobile post-reveal injection failed: $e');
                 }
-                _pulseCover();
               },
             ),
           )
@@ -504,6 +512,30 @@ a.tag, .tag { background-color: #2b3134 !important; color: #e8e6e3 !important; }
     Future.delayed(duration, () {
       if (!mounted) return;
       setState(() => _coverVisible = false);
+    });
+  }
+
+  /// Make the webview visible and clear every loading overlay. Centralized so
+  /// no code path can leave the screen blank.
+  void _reveal() {
+    _loadWatchdog?.cancel();
+    if (!mounted) return;
+    setState(() {
+      _isLoading = false;
+      _readyToShow = true;
+      _coverVisible = false;
+    });
+  }
+
+  /// Failsafe: if a page load (or its style injection) hangs, force-reveal
+  /// after [timeout] so the user is never stuck on a blank screen.
+  void _armLoadWatchdog({Duration timeout = const Duration(seconds: 10)}) {
+    _loadWatchdog?.cancel();
+    _loadWatchdog = Timer(timeout, () {
+      if (mounted && !_readyToShow) {
+        debugPrint('[BrowseTab] Load watchdog fired — forcing reveal');
+        _reveal();
+      }
     });
   }
 
@@ -979,7 +1011,7 @@ a.tag, .tag { background-color: #2b3134 !important; color: #e8e6e3 !important; }
                 ),
                 if (!_readyToShow)
                   Container(
-                    color: Theme.of(context).colorScheme.background,
+                    color: Theme.of(context).colorScheme.surface,
                     child: const Center(child: CircularProgressIndicator()),
                   ),
                 IgnorePointer(
@@ -988,7 +1020,9 @@ a.tag, .tag { background-color: #2b3134 !important; color: #e8e6e3 !important; }
                     opacity: _coverVisible ? 1.0 : 0.0,
                     duration: const Duration(milliseconds: 120),
                     child: Container(
-                      color: Theme.of(context).colorScheme.background,
+                      color: Theme.of(context).colorScheme.surface,
+                      // Never show a plain blank cover — always indicate work.
+                      child: const Center(child: CircularProgressIndicator()),
                     ),
                   ),
                 ),
@@ -1297,6 +1331,9 @@ a.tag, .tag { background-color: #2b3134 !important; color: #e8e6e3 !important; }
     }
   }
 
+  // Parked: debug helper, no longer called on the hot path (it cost an
+  // executeScript round-trip per page load).
+  // ignore: unused_element
   Future<void> _diagnoseListingDom(String stage) async {
     try {
       final diag = await _getJson<Map<String, dynamic>>(r'''
