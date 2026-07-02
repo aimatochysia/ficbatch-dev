@@ -145,10 +145,7 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      - name: Pod install
-        run: |
-          cd ios
-          pod install
+      # flutter build ios generates the Podfile and runs pod install itself.
       - run: flutter build ios --release --no-codesign
       - name: Zip iOS .app
         run: |

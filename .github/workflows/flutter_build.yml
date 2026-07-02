@@ -294,10 +294,7 @@ jobs:
           pod repo update || true
       - name: Flutter pub get
         run: flutter pub get
-      - name: Pod install
-        run: |
-          cd ios
-          pod install
+      # flutter build ios generates the Podfile and runs pod install itself.
       - name: Build iOS (no codesign)
         run: flutter build ios --release --no-codesign
       - name: Package iOS .app

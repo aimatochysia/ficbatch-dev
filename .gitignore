@@ -63,14 +63,16 @@ yarn-error.*
 *.iml
 
 # iOS specific files
+# NOTE: Runner.xcodeproj/project.pbxproj, the workspace data and the Podfile
+# MUST be committed — CI cannot run `pod install` / `flutter build ios`
+# without them (their absence caused the iOS release-build failure).
 /ios/.dart_tool/
 /ios/.packages
 /ios/Flutter/Flutter.podspec
 /ios/Pods/
-/ios/Runner.xcworkspace
-/ios/Runner.xcodeproj/project.xcworkspace
-/ios/Runner.xcodeproj/project.pbxproj
 /ios/Flutter/flutter_export_environment.sh
+/ios/Runner.xcworkspace/xcuserdata/
+/ios/Runner.xcodeproj/xcuserdata/
 
 # VS Code settings
 .vscode/
