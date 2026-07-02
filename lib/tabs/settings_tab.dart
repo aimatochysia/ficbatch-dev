@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/theme_provider.dart';
 import '../providers/storage_provider.dart';
 import '../services/sync_service.dart';
@@ -678,6 +679,9 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
       await DownloadService.clearAllDownloads();
       await storage.clearAll(); // works box
       await storage.settingsBox.clear(); // categories, history, settings…
+      // Also clear SharedPreferences (theme mode lives there).
+      final sp = await SharedPreferences.getInstance();
+      await sp.clear();
       DownloadService.configureDirectory(null);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
