@@ -769,6 +769,12 @@ a.tag, .tag { background-color: #2b3134 !important; color: #e8e6e3 !important; }
       final cats = await storage.getCategories();
 
       if (cats.isEmpty) {
+        if (storage.getWork(work.id) != null) {
+          if (context.mounted) {
+            _showSnackBar('“${work.title}” is already in your library.');
+          }
+          return;
+        }
         await storage.saveWork(work);
         if (context.mounted)
           _showSnackBar('Saved “${work.title}” to library (default).');
@@ -823,6 +829,17 @@ a.tag, .tag { background-color: #2b3134 !important; color: #e8e6e3 !important; }
       );
 
       if (newCats == null || newCats.isEmpty) return;
+
+      // Duplicate-in-category notice: nothing actually changed.
+      if (existingCategories.isNotEmpty &&
+          newCats.length == existingCategories.length &&
+          newCats.containsAll(existingCategories)) {
+        if (context.mounted) {
+          _showSnackBar(
+              '“${work.title}” is already in ${newCats.join(', ')}.');
+        }
+        return;
+      }
 
       await storage.saveWork(work);
       await storage.setCategoriesForWork(work.id, newCats);
@@ -1417,6 +1434,13 @@ a.tag, .tag { background-color: #2b3134 !important; color: #e8e6e3 !important; }
       final cats = await storage.getCategories();
 
       if (cats.isEmpty) {
+        if (storage.getWork(workId) != null) {
+          await _confirmSaveInWebview(workId);
+          if (mounted) {
+            _showSnackBar('“${work.title}” is already in your library.');
+          }
+          return;
+        }
         await storage.saveWork(work);
         if (mounted) _showSnackBar('Saved “${work.title}” (default).');
         await _confirmSaveInWebview(workId);
@@ -1472,6 +1496,17 @@ a.tag, .tag { background-color: #2b3134 !important; color: #e8e6e3 !important; }
       if (chosen == null || chosen.isEmpty) {
         // User cancelled - reset the button in webview
         await _cancelSaveInWebview(workId);
+        return;
+      }
+
+      // Duplicate-in-category notice: nothing actually changed.
+      if (existingCategories.isNotEmpty &&
+          chosen.length == existingCategories.length &&
+          chosen.containsAll(existingCategories)) {
+        await _confirmSaveInWebview(workId);
+        if (mounted) {
+          _showSnackBar('“${work.title}” is already in ${chosen.join(', ')}.');
+        }
         return;
       }
 
