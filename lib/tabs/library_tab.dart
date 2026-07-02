@@ -293,9 +293,9 @@ class _LibraryTabState extends ConsumerState<LibraryTab> {
     });
     
     try {
-      final path = await DownloadService.downloadWork(work.id);
-      
-      if (path != null) {
+      final result = await DownloadService.downloadWork(work.id);
+
+      if (result.isSuccess) {
         // Update work status in storage
         final storage = ref.read(storageProvider);
         final updatedWork = work.copyWith(
@@ -303,7 +303,7 @@ class _LibraryTabState extends ConsumerState<LibraryTab> {
           downloadedAt: DateTime.now(),
         );
         await storage.saveWork(updatedWork);
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Downloaded "${work.title}"')),
@@ -312,7 +312,11 @@ class _LibraryTabState extends ConsumerState<LibraryTab> {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to download "${work.title}"')),
+            SnackBar(
+              content:
+                  Text('Download failed: ${result.error} — "${work.title}"'),
+              duration: const Duration(seconds: 6),
+            ),
           );
         }
       }
@@ -368,6 +372,7 @@ class _LibraryTabState extends ConsumerState<LibraryTab> {
     try {
       int downloaded = 0;
       int failed = 0;
+      String? lastError;
       final throttleRaw = ref
           .read(storageProvider)
           .settingsBox
@@ -383,9 +388,9 @@ class _LibraryTabState extends ConsumerState<LibraryTab> {
           });
         }
         
-        final path = await DownloadService.downloadWork(work.id);
-        
-        if (path != null) {
+        final result = await DownloadService.downloadWork(work.id);
+
+        if (result.isSuccess) {
           downloaded++;
           // Update work status
           final storage = ref.read(storageProvider);
@@ -396,19 +401,21 @@ class _LibraryTabState extends ConsumerState<LibraryTab> {
           await storage.saveWork(updatedWork);
         } else {
           failed++;
+          lastError = result.error;
         }
-        
+
         // Throttle downloads (configurable in Settings → Downloads)
         if (i < works.length - 1) {
           await Future.delayed(Duration(milliseconds: throttleMs));
         }
       }
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Downloaded $downloaded work(s)${failed > 0 ? ', $failed failed' : ''}'),
-            duration: const Duration(seconds: 3),
+            content: Text(
+                'Downloaded $downloaded work(s)${failed > 0 ? ', $failed failed (${lastError ?? 'unknown'})' : ''}'),
+            duration: const Duration(seconds: 5),
           ),
         );
       }

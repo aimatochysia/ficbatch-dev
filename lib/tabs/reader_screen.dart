@@ -102,6 +102,17 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
     // Save work synchronously (Hive operations are fast)
     _cachedStorage!.saveWork(updatedWork);
+    // Also record the final position in history — without this, closing the
+    // reader between autosave ticks left History showing the previous
+    // chapter. Fire-and-forget: the Hive put completes even after dispose.
+    unawaited(_cachedStorage!.addToHistory(
+      workId: widget.work.id,
+      title: widget.work.title,
+      author: widget.work.author,
+      chapterIndex: _currentChapterIndex,
+      chapterName: chapterName,
+      scrollPosition: _currentScrollPosition,
+    ));
     _hasUnsavedChanges = false;
   }
 
@@ -1226,6 +1237,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         final index = int.tryParse(result.toString()) ?? 0;
         if (index >= 0 && index < _chapters.length && index != _currentChapterIndex) {
           setState(() => _currentChapterIndex = index);
+          _hasUnsavedChanges = true; // persist the new chapter on next autosave
         }
       }
     } catch (e) {
@@ -1346,6 +1358,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         await _controller!.runJavaScript(js);
       }
       setState(() => _currentChapterIndex = index);
+      _hasUnsavedChanges = true; // persist the chapter jump on next autosave
     } catch (e) {
       debugPrint('Error jumping to chapter: $e');
     }

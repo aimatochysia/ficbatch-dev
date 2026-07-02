@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,20 +18,40 @@ class HistoryTab extends ConsumerStatefulWidget {
 class _HistoryTabState extends ConsumerState<HistoryTab> {
   List<Map<String, dynamic>>? _history;
   bool _isLoading = true;
-  
+  StreamSubscription? _historySub;
+
   @override
   void initState() {
     super.initState();
     _loadHistory();
+    // Live-update: reload whenever the history key changes (reader autosave,
+    // opening a work, sync-folder import). Without this the tab only showed
+    // data from app start until the manual refresh button was pressed.
+    try {
+      final storage = ref.read(storageProvider);
+      _historySub = storage.settingsBox
+          .watch(key: 'history')
+          .listen((_) => _loadHistory(silent: true));
+    } catch (e) {
+      debugPrint('History watch unavailable: $e');
+    }
   }
-  
-  Future<void> _loadHistory() async {
+
+  @override
+  void dispose() {
+    _historySub?.cancel();
+    super.dispose();
+  }
+
+  /// Reload the list. [silent] avoids flashing the loading spinner for
+  /// background refreshes triggered by the storage watcher.
+  Future<void> _loadHistory({bool silent = false}) async {
     if (!mounted) return;
-    setState(() => _isLoading = true);
-    
+    if (!silent) setState(() => _isLoading = true);
+
     final storage = ref.read(storageProvider);
     final history = await storage.getHistory();
-    
+
     if (mounted) {
       setState(() {
         _history = history;

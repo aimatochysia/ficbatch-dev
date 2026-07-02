@@ -1,8 +1,21 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'storage_service.dart';
+
+/// Outcome of a single work download: a file [path] on success, otherwise a
+/// human-readable [error].
+class DownloadResult {
+  final String? path;
+  final String? error;
+
+  const DownloadResult.success(this.path) : error = null;
+  const DownloadResult.failure(this.error) : path = null;
+
+  bool get isSuccess => path != null;
+}
 
 /// Service for downloading works from AO3
 class DownloadService {
@@ -78,35 +91,76 @@ class DownloadService {
     return File(path).exists();
   }
   
-  /// Download a single work from AO3
-  /// Returns the file path on success, null on failure
-  static Future<String?> downloadWork(String workId) async {
+  /// Download a single work from AO3.
+  ///
+  /// Returns a [DownloadResult]: `path` on success, otherwise a
+  /// human-readable `error` explaining exactly why (HTTP status, rate limit,
+  /// restricted work, network error) so failures are diagnosable from the UI
+  /// instead of a generic "failed".
+  static Future<DownloadResult> downloadWork(String workId) async {
     try {
-      // AO3 download URL format: /downloads/{workId}/{workId}.html
+      // AO3 download URL format: /downloads/{workId}/{filename}.html — the
+      // filename segment is arbitrary; AO3 serves by id (and may redirect to
+      // download.archiveofourown.org, which http follows automatically).
       final url = '$_ao3DownloadBaseUrl/$workId/$workId.html';
       debugPrint('[DownloadService] Downloading work $workId from $url');
-      
+
       final response = await http.get(
         Uri.parse(url),
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; FicBatch/1.0)',
+        headers: const {
+          'User-Agent':
+              'Mozilla/5.0 (compatible; FicBatch/1.2; +https://github.com/aimatochysia/FicBatch)',
+          'Accept':
+              'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
         },
       ).timeout(const Duration(seconds: 60));
-      
-      if (response.statusCode != 200) {
-        debugPrint('[DownloadService] Failed to download work $workId: HTTP ${response.statusCode}');
-        return null;
+
+      if (response.statusCode == 429) {
+        final retryAfter = response.headers['retry-after'];
+        return DownloadResult.failure(
+            'AO3 rate limit (HTTP 429) — wait ${retryAfter ?? 'a minute'}'
+            '${retryAfter != null ? 's' : ''} and try again');
       }
-      
+      if (response.statusCode == 404) {
+        return DownloadResult.failure(
+            'Work not found (HTTP 404) — it may be deleted or hidden');
+      }
+      if (response.statusCode != 200) {
+        debugPrint(
+            '[DownloadService] Failed to download work $workId: HTTP ${response.statusCode}');
+        return DownloadResult.failure('HTTP ${response.statusCode} from AO3');
+      }
+
+      final body = response.body;
+      // A 200 can still be a "wrong" page: restricted works bounce to the
+      // login form, and WAF challenges return small HTML pages.
+      if (body.contains('id="new_user_session"') ||
+          body.contains('only available to registered users')) {
+        return DownloadResult.failure(
+            'This work is restricted to logged-in users and cannot be downloaded');
+      }
+      if (body.length < 2048 && body.toLowerCase().contains('cloudflare')) {
+        return DownloadResult.failure(
+            'Blocked by AO3\'s protection layer — try again later');
+      }
+
       final filePath = await getWorkDownloadPath(workId);
       final file = File(filePath);
       await file.writeAsBytes(response.bodyBytes);
-      
+
       debugPrint('[DownloadService] Successfully downloaded work $workId to $filePath');
-      return filePath;
+      return DownloadResult.success(filePath);
+    } on SocketException catch (e) {
+      return DownloadResult.failure('Network error: ${e.message}');
+    } on TimeoutException {
+      return DownloadResult.failure('Timed out after 60s');
+    } on FileSystemException catch (e) {
+      return DownloadResult.failure(
+          'Could not write file: ${e.message} (${e.path ?? 'download folder'})');
     } catch (e) {
       debugPrint('[DownloadService] Error downloading work $workId: $e');
-      return null;
+      return DownloadResult.failure(e.toString());
     }
   }
   
@@ -118,20 +172,20 @@ class DownloadService {
     void Function(int completed, int total)? onProgress,
   }) async {
     final results = <String, bool>{};
-    
+
     for (int i = 0; i < workIds.length; i++) {
       final workId = workIds[i];
-      final path = await downloadWork(workId);
-      results[workId] = path != null;
-      
+      final result = await downloadWork(workId);
+      results[workId] = result.isSuccess;
+
       onProgress?.call(i + 1, workIds.length);
-      
+
       // Throttle to avoid overwhelming AO3
       if (i < workIds.length - 1) {
         await Future.delayed(throttleDelay);
       }
     }
-    
+
     return results;
   }
   

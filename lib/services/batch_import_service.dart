@@ -139,12 +139,14 @@ class BatchImportService {
         if (_storage.settingsBox
                 .get('auto_download_global', defaultValue: false) ==
             true) {
-          final path = await DownloadService.downloadWork(workId);
-          if (path != null) {
+          final dl = await DownloadService.downloadWork(workId);
+          if (dl.isSuccess) {
             await _storage.saveWork(work.copyWith(
               isDownloaded: true,
               downloadedAt: DateTime.now(),
             ));
+          } else {
+            debugPrint('[BatchImport] Auto-download failed for $workId: ${dl.error}');
           }
         }
         
