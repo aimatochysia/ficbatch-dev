@@ -40,7 +40,10 @@ jobs:
         run: dart format --output=none --set-exit-if-changed . || true
 
       - name: Analyze
-        run: flutter analyze
+        # Errors and warnings fail the build; info-level style lints don't
+        # (Flutter 3.44 makes infos fatal by default, which is why every
+        # earlier CI run failed despite zero errors/warnings).
+        run: flutter analyze --no-fatal-infos
 
       - name: Run tests
         run: flutter test

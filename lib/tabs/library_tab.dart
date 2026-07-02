@@ -985,7 +985,7 @@ class _LibraryTabState extends ConsumerState<LibraryTab> {
     // Get works for this category
     final storage = ref.read(storageProvider);
     final ids = await storage.getWorkIdsForCategory(category);
-    final allWorks = await storage.getAllWorks();
+    final allWorks = storage.getAllWorks();
     final works = allWorks.where((w) => ids.contains(w.id)).toList();
     
     if (!context.mounted) return;
