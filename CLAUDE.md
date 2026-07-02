@@ -292,14 +292,23 @@ Phase 3 — **done (iteration 3)**
 - [x] Bonus: browse webview reveal-early + spinner + load watchdog (fixes slow/blank screen);
       auto-build artifacts workflow (`iteration-artifacts.yml`); version bump 1.1.0+2
 
-Phase 4 (next up — see `question_4.md`)
-- [x] Unit tests for core logic (parsing/serialization/summaries) — started in iteration 1
-- [ ] Widget tests for tabs (onboarding widget test shipped in iteration 3)
-- [ ] JS injection testing across platforms (user request, iteration 3 F)
-- [ ] CI version cleanup + dependency modernization (drop unused `xml`, modernize `http`)
-- [x] Flutter SDK + SessionStart hook so analyze/test run in web sessions (iteration 1.5)
-- [ ] Cross-device sync — see `docs/research/pears_p2p_sync.md` (recommendation: sync-folder
-      mode on top of export/import; Pears/Bare deferred)
+Phase 4 — **done (iteration 4)**
+- [x] Unit tests for core logic (parsing/serialization/summaries/history merge)
+- [x] Widget tests started (onboarding) + on-disk Hive round-trip test
+- [x] JS injection testing: injector extracted to `assets/js/listing_buttons.js`,
+      tested headlessly via `tools/js-tests` (Node + jsdom, portrait & landscape) in CI
+- [x] CI version cleanup + dependency modernization — Flutter 3.44.4/Dart 3.12,
+      http 1.x, webview_flutter 4.14, notifications 19, `xml` dropped, analyzer
+      workaround removed, **hive → hive_ce** (old hive_generator can't run on Dart 3.12)
+- [x] Flutter SDK + SessionStart hook so analyze/test run in web sessions
+- [x] Cross-device sync v1: **sync-folder mode** (`SyncFolderService`, export format v2
+      with history) — see `docs/research/pears_p2p_sync.md` (incl. the Rust/iroh addendum)
+- [x] Release prep: v1.2.0+3, `RELEASE_NOTES.md` wired into `flutter_build.yml`
+
+Iteration 5+ candidates (see `question_5.md`)
+- [ ] Widget tests for the remaining tabs
+- [ ] RadioGroup migration in `advanced_search.dart` (deprecated Radio API)
+- [ ] Mobile folder sync (SAF) if desktop sync-folder proves out
 
 ---
 

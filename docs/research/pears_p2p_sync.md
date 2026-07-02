@@ -79,6 +79,44 @@ maintenance surface.
    feature and the bare-kit desktop story matures — or if Holepunch ships
    official Flutter bindings.
 
+## 3.5 Addendum (iteration 4): "why not just Rust compiled to all platforms?"
+
+*User follow-up: rather than juggling many languages, wouldn't it be better to
+use Rust and compile it everywhere? Web isn't supported anyway — and who needs
+the web version when AO3 itself is a website; the app's value is the library/
+offline reading on your own devices.*
+
+Two separate points, both largely right:
+
+1. **Web doesn't matter for sync.** Agreed — the browser can't do this app's
+   core value (local library, offline files, background sync) anyway, so
+   "no web support" should not veto a sync technology. That removes one of the
+   blockers listed against Pears above.
+
+2. **Rust is the right instinct for "one codebase, every platform" — but it
+   doesn't unlock Pears.** The entire Pear stack (Hypercore 10, Autobase,
+   Hyperswarm) is implemented **only in JavaScript**; the old community Rust
+   port of Hypercore lags the protocol and has no Autobase or usable
+   Hyperswarm. Choosing Rust means choosing a *different* P2P stack, not a
+   Rust flavor of Pears:
+   - **iroh** (n0-computer, reached 1.0): QUIC-based connections with NAT
+     hole-punching, plus `iroh-blobs` (content-addressed transfer) and
+     `iroh-docs` (multi-writer synced key-value store) — essentially the
+     Rust-native equivalent of Hyperswarm + Hypercore/Autobase.
+   - **automerge-rs** or other CRDTs for the merge layer if not using
+     iroh-docs.
+   - Bridged into Flutter once via **flutter_rust_bridge** or UniFFI-style
+     FFI — a single native library compiled for Android/iOS/Windows/macOS/
+     Linux, instead of per-platform JS-runtime embeddings.
+
+   So if/when FicBatch outgrows the sync folder and wants built-in
+   device-to-device sync, **Rust + iroh via flutter_rust_bridge is the
+   preferred path** — one language, one artifact per platform, no embedded JS
+   engine. It is still a multi-week effort (protocol/schema design, pairing
+   UX, background execution on mobile), which is why the sync folder ships
+   first: it delivers the user-visible feature now, and the merge semantics
+   it hardens are exactly what an iroh-docs backend would reuse.
+
 ## 4. Recommendation
 
 Don't adopt Pears now. The data-model fit is real, but for a Flutter app the

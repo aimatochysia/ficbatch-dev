@@ -324,6 +324,9 @@ jobs:
       contents: write
 
     steps:
+      - name: Checkout source (for RELEASE_NOTES.md)
+        uses: actions/checkout@v4
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4.1.8
         with:
@@ -346,6 +349,12 @@ jobs:
 
           {
             echo "RELEASE_BODY<<EOF"
+            if [ -f RELEASE_NOTES.md ]; then
+              cat RELEASE_NOTES.md
+              echo ""
+              echo "---"
+              echo ""
+            fi
             echo "Automated multi-platform build results:"
             echo ""
             if [ "${{ steps.status.outputs.linux_status }}" = "success" ]; then
