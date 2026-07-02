@@ -15,7 +15,7 @@ is **Phase 4 — testing & infra** plus the sync decision.
 
 ## A. Scope for iteration 4
 
-- [ ] **A. Phase 4 hardening (widget tests, JS-injection testability, dependency
+- [x] **A. Phase 4 hardening (widget tests, JS-injection testability, dependency
       modernization) + start the sync-folder feature from the Pears research
       (Recommended — finishes the roadmap's quality work while delivering the
       first user-visible step toward cross-device sync.)**
@@ -23,13 +23,13 @@ is **Phase 4 — testing & infra** plus the sync decision.
 - [ ] C. Sync feature only; defer tests/infra.
 - [ ] D. Something else.
 
-→ ANSWER:
+→ ANSWER: yep do it
 
 ---
 
 ## B. Cross-device sync approach (from `docs/research/pears_p2p_sync.md`)
 
-- [ ] **A. Sync-folder mode: auto-export (debounced, merge-import on launch) into
+- [x] **A. Sync-folder mode: auto-export (debounced, merge-import on launch) into
       a user-chosen folder; users pair it with Syncthing/Dropbox/iCloud
       (Recommended — works on every platform today, zero new native code, zero
       infrastructure, reuses the shipped export/import + portable downloads;
@@ -40,7 +40,7 @@ is **Phase 4 — testing & infra** plus the sync decision.
       platform-channel work: Java + Obj-C + desktop FFI/sidecar, and no web).
 - [ ] D. No sync work yet.
 
-→ ANSWER:
+→ ANSWER: i hope option A works without any hickups
 
 ---
 
@@ -49,7 +49,7 @@ is **Phase 4 — testing & infra** plus the sync decision.
 The injected JS (reader styling, listing buttons, theme) currently lives in
 Dart string literals and is untested. Options:
 
-- [ ] **A. Extract the JS into assets + add a Node-based DOM test job in CI that
+- [x] **A. Extract the JS into assets + add a Node-based DOM test job in CI that
       runs the injectors against saved AO3 HTML fixtures (Recommended — fast,
       runs on every push, catches selector/markup breakage without needing
       emulators; real-device coverage stays manual via the artifacts builds.)**
@@ -58,7 +58,7 @@ Dart string literals and is untested. Options:
 - [ ] C. Both: A now, B later for Android only.
 - [ ] D. Skip JS testing.
 
-→ ANSWER:
+→ ANSWER: yep do A, with horizontal and vertical view because it might be different
 
 ---
 
@@ -68,11 +68,11 @@ Dart string literals and is untested. Options:
       remove the CI analyzer-downgrade workaround; leave webview/workmanager
       majors alone (Recommended — real wins, low regression risk; webview major
       bumps deserve their own round with device testing.)**
-- [ ] B. Aggressive: also bump webview_flutter to 4.14+, flutter_local_notifications
+- [x] B. Aggressive: also bump webview_flutter to 4.14+, flutter_local_notifications
       to 19.x, workmanager latest, and Flutter SDK pin to a newer stable.
 - [ ] C. Leave dependencies alone this round.
 
-→ ANSWER:
+→ ANSWER: do B instead for better futureproofness (do check if any syntax changed / function changes)
 
 ---
 
@@ -81,16 +81,16 @@ Dart string literals and is untested. Options:
 Once iteration 4 lands, should I trigger-ready a real release (tag + installers
 via `flutter_build.yml`) as v1.1.0?
 
-- [ ] **A. Yes — prepare release notes and bump to 1.2.0+3 when iteration 4
+- [x] **A. Yes — prepare release notes and bump to 1.2.0+3 when iteration 4
       finishes, so the first "post-overhaul" release includes the sync folder
       and test hardening (Recommended — a meaty, coherent release.)**
 - [ ] B. Release v1.1.0 now from the current branch state.
 - [ ] C. No release yet.
 
-→ ANSWER:
+→ ANSWER: Yep, like previous release, list all the things changed/ improved etc
 
 ---
 
 ## F. Anything else?
 
-→ ANSWER:
+→ ANSWER: thats all for now, ill begin manual testing on the artifact from the new release
