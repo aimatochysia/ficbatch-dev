@@ -4,7 +4,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:hive_flutter/hive_flutter.dart';
+import 'package:hive_ce_flutter/hive_flutter.dart';
 import '../models/work.dart';
 import '../models/reading_progress.dart';
 import 'ao3_service.dart';
@@ -165,7 +165,7 @@ class SyncService {
       return;
     }
     
-    await Workmanager().initialize(callbackDispatcher, isInDebugMode: kDebugMode);
+    await Workmanager().initialize(callbackDispatcher);
   }
 
   /// Schedule periodic background sync

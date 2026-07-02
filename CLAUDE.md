@@ -65,11 +65,11 @@ test/
 ## 3. Build, run, test
 
 > **Flutter on Claude Code on the web:** a SessionStart hook
-> (`.claude/hooks/session-start.sh`) auto-installs Flutter **3.32.8** (Dart
-> 3.8.1, matching `sdk: ^3.8.1`) to `/opt/flutter` and runs `flutter pub get`
-> at session start, so `flutter analyze` / `flutter test` / `build_runner`
-> work in remote sessions. The download happens at most once per cached
-> container image. On a normal dev machine just use a local Flutter 3.32.x.
+> (`.claude/hooks/session-start.sh`) auto-installs Flutter **3.44.4** (Dart
+> 3.12.2, matching `sdk: ^3.12.0`) to `/opt/flutter` and runs `flutter pub
+> get` at session start, so `flutter analyze` / `flutter test` /
+> `build_runner` work in remote sessions. The download happens at most once
+> per cached container image. On a dev machine use a local Flutter 3.44.x.
 
 ```bash
 flutter pub get
@@ -81,12 +81,18 @@ flutter build apk --release            # Android
 flutter build windows --release        # Windows
 ```
 
-- Hive adapters are registered in `StorageService.init()` (typeIds 0 and 1
-  only). **If you add/modify a `@HiveType`, re-run build_runner and register
-  the adapter in BOTH `storage_service.dart` and the background isolate in
-  `sync_service.dart`.**
-- CI uses Flutter `3.32.0` (`flutter_build.yml`) and `3.38.3`
-  (`build-flutter-android.yml`); both are `workflow_dispatch` only.
+- Storage uses **hive_ce** (the maintained community fork of hive; drop-in
+  compatible with existing hive 2.x boxes — migrated in iteration 4 because
+  `hive_generator` capped analyzer <7 and hung on Dart 3.12). Adapters are
+  registered in `StorageService.init()` (typeIds 0 and 1 only). **If you
+  add/modify a `@HiveType`, re-run build_runner and register the adapter in
+  BOTH `storage_service.dart` and the background isolate in
+  `sync_service.dart`** (a generated `lib/hive_registrar.g.dart` extension is
+  also available).
+- All CI/build workflows pin Flutter `3.44.4`. `ci.yml` (analyze + test +
+  js-dom-tests) and `iteration-artifacts.yml` run on every push;
+  `flutter_build.yml` (full release) and `build-flutter-android.yml` are
+  `workflow_dispatch`.
 
 ## 4. Conventions
 

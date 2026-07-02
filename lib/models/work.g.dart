@@ -1,8 +1,14 @@
+// GENERATED CODE - DO NOT MODIFY BY HAND
+
 part of 'work.dart';
+
+// **************************************************************************
+// TypeAdapterGenerator
+// **************************************************************************
 
 class WorkAdapter extends TypeAdapter<Work> {
   @override
-  final int typeId = 1;
+  final typeId = 1;
 
   @override
   Work read(BinaryReader reader) {
@@ -18,19 +24,19 @@ class WorkAdapter extends TypeAdapter<Work> {
       userAddedDate: fields[11] as DateTime,
       publishedAt: fields[4] as DateTime?,
       updatedAt: fields[5] as DateTime?,
-      wordsCount: fields[6] as int?,
-      chaptersCount: fields[7] as int?,
-      kudosCount: fields[8] as int?,
-      hitsCount: fields[9] as int?,
-      commentsCount: fields[10] as int?,
+      wordsCount: (fields[6] as num?)?.toInt(),
+      chaptersCount: (fields[7] as num?)?.toInt(),
+      kudosCount: (fields[8] as num?)?.toInt(),
+      hitsCount: (fields[9] as num?)?.toInt(),
+      commentsCount: (fields[10] as num?)?.toInt(),
       lastSyncDate: fields[12] as DateTime?,
       downloadedAt: fields[13] as DateTime?,
       lastUserOpened: fields[14] as DateTime?,
-      isFavorite: fields[15] as bool,
+      isFavorite: fields[15] == null ? false : fields[15] as bool,
       categoryId: fields[16] as String?,
       readingProgress: fields[17] as ReadingProgress?,
-      isDownloaded: fields[18] as bool,
-      hasUpdate: fields[19] as bool,
+      isDownloaded: fields[18] == null ? false : fields[18] as bool,
+      hasUpdate: fields[19] == null ? false : fields[19] as bool,
       summary: fields[20] as String?,
     );
   }

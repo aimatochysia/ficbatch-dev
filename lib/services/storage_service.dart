@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:hive_flutter/hive_flutter.dart';
+import 'package:hive_ce_flutter/hive_flutter.dart';
 import '../models/work.dart';
 import '../models/reading_progress.dart';
 import 'package:shared_preferences/shared_preferences.dart';

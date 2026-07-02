@@ -226,7 +226,10 @@ class BrowseToolbar extends StatelessWidget {
       // Compact mode: use smaller icons with minimal padding, tightly grouped
       return Container(
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceVariant.withValues(alpha: 0.5),
+          color: Theme.of(context)
+              .colorScheme
+              .surfaceContainerHighest
+              .withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(6),
         ),
         child: Row(

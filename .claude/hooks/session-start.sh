@@ -11,7 +11,7 @@ if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
   exit 0
 fi
 
-FLUTTER_VERSION="3.32.8"   # bundles Dart 3.8.1 (satisfies pubspec sdk: ^3.8.1)
+FLUTTER_VERSION="3.44.4"   # bundles Dart 3.12.2 (satisfies pubspec sdk: ^3.12.0)
 FLUTTER_DIR="/opt/flutter"
 FLUTTER_BIN="$FLUTTER_DIR/bin"
 DART_BIN="$FLUTTER_DIR/bin/cache/dart-sdk/bin"

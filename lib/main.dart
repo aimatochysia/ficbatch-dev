@@ -88,8 +88,9 @@ class Ao3ReaderApp extends ConsumerWidget {
       title: 'AO3 Reader',
       debugShowCheckedModeBanner: false,
       themeMode: themeMode,
-      theme: ThemeData.light().copyWith(useMaterial3: true),
-      darkTheme: ThemeData.dark().copyWith(useMaterial3: true),
+      // Material 3 is the default since Flutter 3.16.
+      theme: ThemeData.light(),
+      darkTheme: ThemeData.dark(),
       home: const RootGate(),
     );
   }

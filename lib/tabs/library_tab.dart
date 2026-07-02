@@ -740,11 +740,9 @@ class _LibraryTabState extends ConsumerState<LibraryTab> {
             child: ReorderableListView.builder(
               shrinkWrap: true,
               itemCount: cats.length,
-              onReorder: (oldIndex, newIndex) {
+              // onReorderItem (3.41+) pre-adjusts newIndex for the removal.
+              onReorderItem: (oldIndex, newIndex) {
                 setState(() {
-                  if (oldIndex < newIndex) {
-                    newIndex -= 1;
-                  }
                   final item = cats.removeAt(oldIndex);
                   cats.insert(newIndex, item);
                 });

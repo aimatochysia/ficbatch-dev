@@ -334,7 +334,7 @@ class _AdvancedSearchScreenState extends ConsumerState<AdvancedSearchScreen> {
           labelText: label,
           border: const OutlineInputBorder(),
         ),
-        value: value.isEmpty ? null : value,
+        initialValue: value.isEmpty ? null : value,
         items: options.entries
             .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value)))
             .toList(),

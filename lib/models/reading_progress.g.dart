@@ -1,8 +1,14 @@
+// GENERATED CODE - DO NOT MODIFY BY HAND
+
 part of 'reading_progress.dart';
+
+// **************************************************************************
+// TypeAdapterGenerator
+// **************************************************************************
 
 class ReadingProgressAdapter extends TypeAdapter<ReadingProgress> {
   @override
-  final int typeId = 0;
+  final typeId = 0;
 
   @override
   ReadingProgress read(BinaryReader reader) {
@@ -11,11 +17,11 @@ class ReadingProgressAdapter extends TypeAdapter<ReadingProgress> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return ReadingProgress(
-      chapterIndex: fields[0] as int,
+      chapterIndex: (fields[0] as num).toInt(),
       chapterAnchor: fields[1] as String?,
       lastReadAt: fields[2] as DateTime?,
-      scrollPosition: fields[3] as double,
-      isCompleted: fields[4] as bool,
+      scrollPosition: (fields[3] as num).toDouble(),
+      isCompleted: fields[4] == null ? false : fields[4] as bool,
       chapterName: fields[5] as String?,
       paragraphAnchor: fields[6] as String?,
     );
