@@ -8,6 +8,9 @@ on:
         type: string
         default: "auto"
 
+permissions:
+  contents: write
+
 jobs:
   build-android:
     runs-on: ubuntu-latest
@@ -55,4 +58,5 @@ jobs:
           name: ${{ steps.relname.outputs.name }}
           files: build/app/outputs/flutter-apk/app-release.apk
         env:
-          GITHUB_TOKEN: ${{ secrets._GITHUB_TOKEN }}
+          # Built-in token (with contents: write above) — no PAT secret needed.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

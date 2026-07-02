@@ -255,20 +255,21 @@ jobs:
       - name: Build macOS
         run: flutter build macos --release
 
-      - name: Create DMG installer
+      # Zip the .app directly — the previous create-dmg step failed silently
+      # (|| true) and if-no-files-found: warn let the job pass with no artifact,
+      # which is why the macOS build "succeeded" but nothing reached the release.
+      - name: Zip macOS app
         run: |
-          mkdir -p dist/macos
-          cp -r build/macos/Build/Products/Release/*.app dist/macos/
-          brew install create-dmg || true
-          create-dmg --overwrite --dmg-title="FicBatch" ficbatch-macos.dmg dist/macos/*.app || true
+          cd build/macos/Build/Products/Release
+          zip -r "$GITHUB_WORKSPACE/ficbatch-macos.zip" *.app
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
           name: macos-artifacts
           path: |
-            ficbatch-macos.dmg
-          if-no-files-found: warn
+            ficbatch-macos.zip
+          if-no-files-found: error
 
 
   build-ios:
@@ -378,7 +379,7 @@ jobs:
             echo "- Android: ficbatch.apk"
             echo "- Linux: ficbatch-linux.deb"
             echo "- Windows: ficbatch-windows.exe"
-            echo "- macOS: ficbatch-macos.dmg"
+            echo "- macOS: ficbatch-macos.zip (unzip and drag FicBatch.app to Applications)"
             echo "- iOS (unsigned): ficbatch-ios-app.zip"
             echo "EOF"
           } >> $GITHUB_ENV
