@@ -52,7 +52,9 @@ Everything below is new or fixed since the previous release.
   flutter_local_notifications 19, http 1.x), storage migrated to the
   maintained **hive_ce** (existing data stays readable).
 - CI now runs analyze + tests + headless DOM tests of the AO3 injector
-  JS on every push; per-push artifact builds for Android/Windows/Linux/Web.
+  JS on every push; per-push artifact builds for Android/Windows/Linux.
+- Web platform support removed — FicBatch's value is the local library and
+  offline reading; for browsing only, AO3 itself is the web app.
 - Deprecation cleanup (`withOpacity` → `withValues`, Material 3 defaults) and
   a much larger test suite (unit, widget, Hive round-trip, jsdom).
 
