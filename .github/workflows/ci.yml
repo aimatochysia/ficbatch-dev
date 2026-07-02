@@ -45,3 +45,23 @@ jobs:
 
       - name: Run tests
         run: flutter test
+
+  js-dom-tests:
+    name: JS injector DOM tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install test dependencies
+        working-directory: tools/js-tests
+        run: npm install --no-audit --no-fund
+
+      - name: Run DOM tests against AO3 fixtures
+        working-directory: tools/js-tests
+        run: node --test

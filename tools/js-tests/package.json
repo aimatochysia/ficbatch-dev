@@ -1,0 +1,12 @@
+{
+  "name": "ficbatch-js-tests",
+  "private": true,
+  "description": "Headless DOM tests for the JS injected into the AO3 webview",
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "jsdom": "^25.0.0"
+  }
+}
