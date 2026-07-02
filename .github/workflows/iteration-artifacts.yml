@@ -1,0 +1,162 @@
+name: Iteration artifacts
+
+# Auto-builds installable artifacts on every push to a working branch so each
+# iteration can be tested on real devices without cutting a release.
+# Android/Windows/Linux/Web build on every push; macOS/iOS are opt-in via
+# manual dispatch (Apple runners cost 10x Actions minutes and unsigned iOS
+# builds can't be sideloaded anyway — use flutter_build.yml for full releases).
+on:
+  push:
+    branches:
+      - "claude/**"
+      - main
+  workflow_dispatch:
+    inputs:
+      include_apple:
+        description: "Also build macOS and iOS (unsigned)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: artifacts-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-android:
+    name: Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.32.8"
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build apk --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ficbatch-android-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 14
+
+  build-windows:
+    name: Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.32.8"
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build windows --release
+      - name: Zip Windows build
+        shell: pwsh
+        run: Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath ficbatch-windows.zip -Force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ficbatch-windows
+          path: ficbatch-windows.zip
+          retention-days: 14
+
+  build-linux:
+    name: Linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.32.8"
+          channel: stable
+          cache: true
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libglib2.0-dev liblzma-dev libsecret-1-dev
+      - run: flutter pub get
+      - run: flutter build linux --release
+      - name: Zip Linux build
+        run: |
+          cd build/linux/x64/release/bundle
+          zip -r "$GITHUB_WORKSPACE/ficbatch-linux.zip" .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ficbatch-linux
+          path: ficbatch-linux.zip
+          retention-days: 14
+
+  build-web:
+    name: Web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.32.8"
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build web --release
+      - name: Zip Web build
+        run: zip -r ficbatch-web.zip build/web
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ficbatch-web
+          path: ficbatch-web.zip
+          retention-days: 14
+
+  build-macos:
+    name: macOS (opt-in)
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.include_apple }}
+    runs-on: macos-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.32.8"
+          channel: stable
+          cache: true
+      - run: flutter config --enable-macos-desktop
+      - run: flutter pub get
+      - run: flutter build macos --release
+      - name: Zip macOS app
+        run: |
+          cd build/macos/Build/Products/Release
+          zip -r "$GITHUB_WORKSPACE/ficbatch-macos.zip" *.app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ficbatch-macos
+          path: ficbatch-macos.zip
+          retention-days: 14
+
+  build-ios:
+    name: iOS unsigned (opt-in)
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.include_apple }}
+    runs-on: macos-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.32.8"
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Pod install
+        run: |
+          cd ios
+          pod install
+      - run: flutter build ios --release --no-codesign
+      - name: Zip iOS .app
+        run: |
+          APP_PATH=$(ls -d build/ios/iphoneos/*.app | head -n 1)
+          cd "$(dirname "$APP_PATH")"
+          zip -r "$GITHUB_WORKSPACE/ficbatch-ios-app.zip" "$(basename "$APP_PATH")"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ficbatch-ios-unsigned
+          path: ficbatch-ios-app.zip
+          retention-days: 14
