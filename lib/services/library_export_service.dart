@@ -32,15 +32,17 @@ class LibraryExportService {
       // Get auto-download settings per category
       final autoDownloadCategories = await _getAutoDownloadCategories();
       
-      // Create export data structure
+      // Create export data structure. Version 2 adds `history`; the importer
+      // tolerates files from either version.
       final exportData = {
-        'version': 1,
+        'version': 2,
         'exportedAt': DateTime.now().toIso8601String(),
         'works': worksJson,
         'categories': categories,
         'categoryMappings': categoryMappings,
         'autoDownloadCategories': autoDownloadCategories,
         'defaultCategory': await _getDefaultCategory(),
+        'history': await _storage.getHistory(),
       };
       
       return const JsonEncoder.withIndent('  ').convert(exportData);
@@ -93,6 +95,7 @@ class LibraryExportService {
       final categoryMappings = data['categoryMappings'] as Map<String, dynamic>? ?? {};
       final autoDownloadCategories = data['autoDownloadCategories'] as List? ?? [];
       final defaultCategory = data['defaultCategory'] as String?;
+      final historyJson = data['history'] as List? ?? [];
       
       int worksAdded = 0;
       int worksUpdated = 0;
@@ -167,6 +170,18 @@ class LibraryExportService {
       if (defaultCategory != null) {
         await _setDefaultCategory(defaultCategory);
       }
+
+      // Import reading history (v2 exports). Merged with local entries,
+      // deduplicated and capped; replace mode takes the imported list as-is.
+      if (historyJson.isNotEmpty) {
+        final imported = historyJson
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+        final merged = mode == ImportMode.replace
+            ? imported
+            : mergeHistories(await _storage.getHistory(), imported);
+        await _storage.settingsBox.put('history', merged);
+      }
       
       return ImportResult(
         worksAdded: worksAdded,
@@ -200,6 +215,31 @@ class LibraryExportService {
     }
   }
   
+  /// Merge two history lists: union deduplicated by (workId, accessedAt),
+  /// newest first, capped at [StorageService.historyCap]. Pure — unit tested.
+  static List<Map<String, dynamic>> mergeHistories(
+    List<Map<String, dynamic>> local,
+    List<Map<String, dynamic>> imported,
+  ) {
+    final seen = <String>{};
+    final merged = <Map<String, dynamic>>[];
+    for (final entry in [...local, ...imported]) {
+      final key = '${entry['workId']}|${entry['accessedAt']}';
+      if (seen.add(key)) merged.add(entry);
+    }
+    merged.sort((a, b) {
+      final da = DateTime.tryParse(a['accessedAt']?.toString() ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+      final db = DateTime.tryParse(b['accessedAt']?.toString() ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+      return db.compareTo(da);
+    });
+    if (merged.length > StorageService.historyCap) {
+      merged.removeRange(StorageService.historyCap, merged.length);
+    }
+    return merged;
+  }
+
   /// Merge an existing work with imported work data
   Work _mergeWorks(Work existing, Work imported, ImportMode mode) {
     if (mode == ImportMode.replace) {

@@ -10,6 +10,7 @@ import 'providers/storage_provider.dart';
 import 'services/storage_service.dart';
 import 'services/sync_service.dart';
 import 'services/download_service.dart';
+import 'services/sync_folder_service.dart';
 
 import 'tabs/home_tab.dart';
 import 'tabs/library_tab.dart';
@@ -57,9 +58,20 @@ Future<void> main() async {
     debugPrint('Sync service initialization error: $e');
   }
 
+  // Sync-folder: merge-import on launch and watch for changes (if enabled).
+  final syncFolder = SyncFolderService(storage);
+  try {
+    await syncFolder.start();
+  } catch (e) {
+    debugPrint('Sync folder initialization error: $e');
+  }
+
   runApp(
     ProviderScope(
-      overrides: [storageProvider.overrideWithValue(storage)],
+      overrides: [
+        storageProvider.overrideWithValue(storage),
+        syncFolderProvider.overrideWithValue(syncFolder),
+      ],
       child: const Ao3ReaderApp(),
     ),
   );

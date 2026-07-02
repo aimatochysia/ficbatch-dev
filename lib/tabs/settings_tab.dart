@@ -597,6 +597,59 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
     );
   }
 
+  bool _isFolderSyncing = false;
+
+  /// Pick the sync folder (desktop) and enable folder sync.
+  Future<void> _pickSyncFolder() async {
+    String? selected;
+    try {
+      selected = await FilePicker.getDirectoryPath(
+          dialogTitle: 'Choose sync folder');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Folder picker unavailable: $e')),
+        );
+      }
+      return;
+    }
+    if (selected == null) return;
+
+    final syncFolder = ref.read(syncFolderProvider);
+    await syncFolder.configure(enabled: true, path: selected);
+    if (mounted) {
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Sync folder set to $selected')),
+      );
+    }
+  }
+
+  /// Manual import-then-export against the sync folder.
+  Future<void> _syncFolderNow() async {
+    setState(() => _isFolderSyncing = true);
+    try {
+      final result = await ref.read(syncFolderProvider).syncNow();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result == null
+                ? 'Sync folder up to date (exported current state)'
+                : 'Synced: ${result.toSummary()}'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Folder sync error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isFolderSyncing = false);
+    }
+  }
+
   /// Clear the reading history list (works and downloads are untouched).
   Future<void> _clearReadingHistory() async {
     final confirmed = await showDialog<bool>(
@@ -1266,6 +1319,88 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
               title: const Text('Clear All Downloads'),
               subtitle: const Text('Delete all downloaded work files'),
               onTap: _clearAllDownloads,
+            ),
+
+            const Divider(),
+
+            // Sync Folder Section (cross-device sync via a shared folder)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                'Sync Folder (Cross-Device)',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey,
+                ),
+              ),
+            ),
+            Builder(
+              builder: (context) {
+                final syncFolder = ref.read(syncFolderProvider);
+                final isDesktop = Platform.isWindows ||
+                    Platform.isLinux ||
+                    Platform.isMacOS;
+                return Column(
+                  children: [
+                    SwitchListTile(
+                      secondary: const Icon(Icons.folder_shared),
+                      title: const Text('Sync via folder'),
+                      subtitle: Text(
+                        syncFolder.enabled
+                            ? (syncFolder.folderPath ?? 'No folder chosen')
+                            : 'Auto-export library, progress & history to a '
+                                'folder; pair with Syncthing/Dropbox/iCloud',
+                      ),
+                      value: syncFolder.enabled,
+                      onChanged: !isDesktop
+                          ? null
+                          : (v) async {
+                              if (v && syncFolder.folderPath == null) {
+                                await _pickSyncFolder();
+                              } else {
+                                await syncFolder.configure(enabled: v);
+                              }
+                              if (mounted) setState(() {});
+                            },
+                    ),
+                    if (!isDesktop)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          'Folder sync is desktop-only for now. On mobile, use '
+                          'Export/Import Library above.',
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                      ),
+                    if (isDesktop && syncFolder.enabled) ...[
+                      ListTile(
+                        leading: const Icon(Icons.drive_folder_upload),
+                        title: const Text('Change Sync Folder'),
+                        subtitle: Text(syncFolder.folderPath ?? 'Not set'),
+                        onTap: _pickSyncFolder,
+                      ),
+                      ListTile(
+                        leading: _isFolderSyncing
+                            ? const SizedBox(
+                                width: 24,
+                                height: 24,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.sync_alt),
+                        title: const Text('Sync Now'),
+                        subtitle: Text(
+                          syncFolder.lastRun != null
+                              ? 'Last sync: ${_formatDateTime(syncFolder.lastRun!)}'
+                              : 'Never synced',
+                        ),
+                        onTap: _isFolderSyncing ? null : _syncFolderNow,
+                      ),
+                    ],
+                  ],
+                );
+              },
             ),
 
             const Divider(),
