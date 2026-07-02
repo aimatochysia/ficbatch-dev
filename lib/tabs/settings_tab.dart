@@ -11,6 +11,7 @@ import '../providers/storage_provider.dart';
 import '../services/sync_service.dart';
 import '../services/library_export_service.dart';
 import '../services/download_service.dart';
+import 'onboarding_screen.dart';
 
 /// Reader mode options for controlling content source
 enum ReaderMode {
@@ -1197,6 +1198,25 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
                 'Default font size, line height, font family, reading theme',
               ),
               onTap: _showReaderSettingsDialog,
+            ),
+
+            const Divider(),
+
+            // Help
+            ListTile(
+              leading: const Icon(Icons.replay),
+              title: const Text('Replay Onboarding'),
+              subtitle: const Text('Show the welcome guide again'),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (ctx) => OnboardingScreen(
+                      onDone: () => Navigator.pop(ctx),
+                    ),
+                  ),
+                );
+              },
             ),
           ],
         ),

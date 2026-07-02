@@ -17,6 +17,7 @@ import 'tabs/updates_tab.dart';
 import 'tabs/browse_tab.dart';
 import 'tabs/history_tab.dart';
 import 'tabs/settings_tab.dart';
+import 'tabs/onboarding_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -77,8 +78,45 @@ class Ao3ReaderApp extends ConsumerWidget {
       themeMode: themeMode,
       theme: ThemeData.light().copyWith(useMaterial3: true),
       darkTheme: ThemeData.dark().copyWith(useMaterial3: true),
-      home: const MainScaffold(),
+      home: const RootGate(),
     );
+  }
+}
+
+/// Shows first-run onboarding until it has been completed, then the main app.
+/// If storage is unavailable, defaults to the main app rather than blocking.
+class RootGate extends ConsumerStatefulWidget {
+  const RootGate({super.key});
+
+  @override
+  ConsumerState<RootGate> createState() => _RootGateState();
+}
+
+class _RootGateState extends ConsumerState<RootGate> {
+  bool _showOnboarding = false;
+
+  @override
+  void initState() {
+    super.initState();
+    try {
+      final storage = ref.read(storageProvider);
+      _showOnboarding =
+          storage.settingsBox.get('onboarding_complete', defaultValue: false) !=
+              true;
+    } catch (e) {
+      debugPrint('Onboarding flag unavailable, skipping onboarding: $e');
+      _showOnboarding = false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_showOnboarding) {
+      return OnboardingScreen(
+        onDone: () => setState(() => _showOnboarding = false),
+      );
+    }
+    return const MainScaffold();
   }
 }
 
