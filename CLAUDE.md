@@ -278,17 +278,22 @@ Phase 2 — **done (iteration 2)**
 - [x] Android 13+ notification permission + manifest (`POST_NOTIFICATIONS`, `RECEIVE_BOOT_COMPLETED`, `WAKE_LOCK`) via `permission_handler`
 - [x] Robust sync date parsing — `SyncService` now uses `Ao3Service` and refreshes the full metadata baseline
 
-Phase 3 (next up — see `question_3.md`)
-- [ ] Onboarding flow
-- [ ] Duplicate-in-category notice
+Phase 3 — **done (iteration 3)**
+- [x] Onboarding flow (minimal welcome screen, `onboarding_complete` flag, replay in Settings)
+- [x] Duplicate-in-category notice (both browse save paths; batch import reports via summary)
 - [x] Fix deprecations (`withOpacity` → `withValues`) — done in iteration 2
-- [ ] Reset app data / clear reading history (Clear All Downloads shipped in iteration 2)
+- [x] Reset app data (typed confirm) / Clear reading history in Settings
+- [x] Bonus: browse webview reveal-early + spinner + load watchdog (fixes slow/blank screen);
+      auto-build artifacts workflow (`iteration-artifacts.yml`); version bump 1.1.0+2
 
-Phase 4
+Phase 4 (next up — see `question_4.md`)
 - [x] Unit tests for core logic (parsing/serialization/summaries) — started in iteration 1
-- [ ] Widget tests for tabs
+- [ ] Widget tests for tabs (onboarding widget test shipped in iteration 3)
+- [ ] JS injection testing across platforms (user request, iteration 3 F)
 - [ ] CI version cleanup + dependency modernization (drop unused `xml`, modernize `http`)
 - [x] Flutter SDK + SessionStart hook so analyze/test run in web sessions (iteration 1.5)
+- [ ] Cross-device sync — see `docs/research/pears_p2p_sync.md` (recommendation: sync-folder
+      mode on top of export/import; Pears/Bare deferred)
 
 ---
 
