@@ -23,10 +23,10 @@ tell me when you want artifacts or a release and I'll trigger them.
       validating beats piling on more).**
 - [ ] B. Quality round: remaining tab widget tests, RadioGroup migration,
       info-lint cleanup.
-- [ ] C. Both A and B.
+- [x] C. Both A and B.
 - [ ] D. Something else.
 
-→ ANSWER:
+→ ANSWER: both A and B
 
 ---
 
@@ -35,7 +35,7 @@ tell me when you want artifacts or a release and I'll trigger them.
 Per platform, with the exact snackbar/error text where relevant (downloads now
 say *why* they fail — that text is the diagnosis).
 
-→ ANSWER:
+→ ANSWER: ill wait until the release
 
 ---
 
@@ -47,7 +47,7 @@ say *why* they fail — that text is the diagnosis).
 - [ ] C. Add sync-on-focus too (re-import when the window regains focus).
 - [ ] D. Problems found (describe below).
 
-→ ANSWER:
+→ ANSWER: still wait for  the release
 
 ---
 
@@ -56,13 +56,13 @@ say *why* they fail — that text is the diagnosis).
 Say the word and I'll trigger the full release workflow (all five platforms,
 release notes) as v1.3.0. Until you do, nothing builds automatically.
 
-- [ ] A. Yes — release v1.3.0 now.
+- [x] A. Yes — release v0.7.1 now.
 - [ ] **B. After my testing round confirms iteration 5 (Recommended).**
 
-→ ANSWER:
+→ ANSWER: Yes, version v0.7.1 with the release tag being also that "v0.7.1"
 
 ---
 
 ## E. Anything else?
 
-→ ANSWER:
+→ ANSWER: thats all for now
