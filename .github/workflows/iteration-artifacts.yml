@@ -1,15 +1,10 @@
 name: Iteration artifacts
 
-# Auto-builds installable artifacts on every push to a working branch so each
+# Builds installable artifacts (Android/Windows/Linux; macOS/iOS opt-in) so an
 # iteration can be tested on real devices without cutting a release.
-# Android/Windows/Linux build on every push; macOS/iOS are opt-in via
-# manual dispatch (Apple runners cost 10x Actions minutes and unsigned iOS
-# builds can't be sideloaded anyway — use flutter_build.yml for full releases).
+# Manual-only by user request: trigger from the Actions tab (or ask Claude)
+# when you want testable builds — pushes no longer build automatically.
 on:
-  push:
-    branches:
-      - "claude/**"
-      - main
   workflow_dispatch:
     inputs:
       include_apple:
