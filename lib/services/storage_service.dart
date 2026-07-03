@@ -20,8 +20,9 @@ class StorageService {
 
       await Hive.initFlutter();
 
-      if (!Hive.isAdapterRegistered(0))
+      if (!Hive.isAdapterRegistered(0)) {
         Hive.registerAdapter(ReadingProgressAdapter());
+      }
       if (!Hive.isAdapterRegistered(1)) Hive.registerAdapter(WorkAdapter());
 
       await Hive.openBox<Work>(worksBoxName);

@@ -185,14 +185,16 @@ bool _isValidSearchUrl(String url) {
     final segs = u.pathSegments;
     final hasQuery = u.query.isNotEmpty;
 
-    if (segs.length >= 2 && segs.first == 'tags' && segs.last == 'works')
+    if (segs.length >= 2 && segs.first == 'tags' && segs.last == 'works') {
       return true;
+    }
     if (segs.length == 1 && segs.first == 'works' && hasQuery) return true;
     if (segs.length >= 2 &&
         segs[0] == 'works' &&
         segs[1] == 'search' &&
-        hasQuery)
+        hasQuery) {
       return true;
+    }
 
     if (segs.isNotEmpty && segs[0] == 'works') {
       if (segs.length >= 2 && RegExp(r'^\d+$').hasMatch(segs[1])) return false;

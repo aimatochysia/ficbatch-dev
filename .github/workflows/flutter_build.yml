@@ -2,6 +2,11 @@ name: Build All Platforms and Release
 
 on:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag (e.g. v0.7.1); 'auto' uses a date tag"
+        type: string
+        default: "auto"
 
 permissions:
   contents: read
@@ -41,7 +46,12 @@ jobs:
 
       - name: Generate release tag
         id: set-tag
-        run: echo "tag=v$(date +'%Y%m%d-%H%M')" >> $GITHUB_OUTPUT
+        run: |
+          TAG="${{ inputs.release_tag }}"
+          if [ -z "$TAG" ] || [ "$TAG" = "auto" ]; then
+            TAG="v$(date +'%Y%m%d-%H%M')"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
 
       - name: Decode Android keystore
         run: |

@@ -35,7 +35,7 @@ class ReaderScreen extends ConsumerStatefulWidget {
 class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   WebViewController? _controller;
   win.WebviewController? _winController;
-  bool _isWindows = Platform.isWindows;
+  final bool _isWindows = Platform.isWindows;
   bool _isLoading = true;
   bool _isContentReady = false; // Track if content is ready to display
   bool _isUsingOfflineContent = false; // Track if using downloaded content
@@ -841,7 +841,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     return '''
 (function () {
   try {
-    var MODE = '${mode}' === 'dark' ? 'dark' : 'light';
+    var MODE = '$mode' === 'dark' ? 'dark' : 'light';
     var CDN = 'https://cdn.jsdelivr.net/npm/darkreader@4.9.58/darkreader.min.js';
     var SCRIPT_ID = '__fb_darkreader_script';
     var pendingMode = MODE;
@@ -924,18 +924,18 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
         const style = document.createElement('style');
         style.id = '__fb_font_size_style';
-        style.textContent = \`
+        style.textContent = `
           #workskin { font-size: ${_fontSize}px !important; }
           body { font-size: ${_fontSize}px !important; }
           p, div, span, li, blockquote, .userstuff {
             font-size: ${_fontSize}px !important;
-            line-height: ${_lineHeight} !important;
+            line-height: $_lineHeight !important;
           }
           h1 { font-size: ${_fontSize * 1.5}px !important; }
           h2 { font-size: ${_fontSize * 1.3}px !important; }
           h3 { font-size: ${_fontSize * 1.15}px !important; }
           $fontFamilyRule
-        \`;
+        `;
         document.head.appendChild(style);
       })();
     ''';

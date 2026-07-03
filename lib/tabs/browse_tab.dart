@@ -28,9 +28,9 @@ class _BrowseTabState extends ConsumerState<BrowseTab> {
   win.WebviewController? _winController;
   final TextEditingController _urlController = TextEditingController();
   bool _isLoading = true;
-  bool _isWindows = Platform.isWindows;
+  final bool _isWindows = Platform.isWindows;
   bool _readyToShow = false;
-  String _searchType = 'query';
+  final String _searchType = 'query';
   String _currentUrl = '';
   Brightness? _lastBrightness;
   String? _pendingThemeMode;
@@ -325,7 +325,7 @@ class _BrowseTabState extends ConsumerState<BrowseTab> {
     return '''
 (function () {
   try {
-    var MODE = '${mode}' === 'dark' ? 'dark' : 'light';
+    var MODE = '$mode' === 'dark' ? 'dark' : 'light';
     var CDN = 'https://cdn.jsdelivr.net/npm/darkreader@4.9.58/darkreader.min.js';
     var SCRIPT_ID = '__fb_darkreader_script';
     var pendingMode = MODE;
@@ -659,8 +659,9 @@ a.tag, .tag { background-color: #2b3134 !important; color: #e8e6e3 !important; }
           return;
         }
         await storage.saveWork(work);
-        if (context.mounted)
+        if (context.mounted) {
           _showSnackBar('Saved “${work.title}” to library (default).');
+        }
         return;
       }
 
@@ -726,8 +727,9 @@ a.tag, .tag { background-color: #2b3134 !important; color: #e8e6e3 !important; }
 
       await storage.saveWork(work);
       await storage.setCategoriesForWork(work.id, newCats);
-      if (context.mounted)
+      if (context.mounted) {
         _showSnackBar('Saved “${work.title}” to ${newCats.join(', ')}.');
+      }
     } catch (e, st) {
       debugPrint('Save confirm failed: $e\n$st');
       _showSnackBar('Failed to extract AO3 metadata.');
@@ -747,26 +749,26 @@ a.tag, .tag { background-color: #2b3134 !important; color: #e8e6e3 !important; }
     
     final storage = ref.read(storageProvider);
 
-    final onHome = () => goHome(
+    Future<void> onHome() => goHome(
       isWindows: _isWindows,
       winController: _winController,
       controller: _controller,
       onUrlChange: (u) => setState(() => _currentUrl = u),
       clearInput: _clearQueryInput,
     );
-    final onBack = () => goBack(
+    Future<void> onBack() => goBack(
       isWindows: _isWindows,
       winController: _winController,
       controller: _controller,
       clearInput: _clearQueryInput,
     );
-    final onForward = () => goForward(
+    Future<void> onForward() => goForward(
       isWindows: _isWindows,
       winController: _winController,
       controller: _controller,
       clearInput: _clearQueryInput,
     );
-    final onRefresh = () => refreshPage(
+    Future<void> onRefresh() => refreshPage(
       isWindows: _isWindows,
       winController: _winController,
       controller: _controller,
@@ -995,7 +997,7 @@ a.tag, .tag { background-color: #2b3134 !important; color: #e8e6e3 !important; }
         final level = obj['level']?.toString() ?? 'info';
         final msg = obj['msg']?.toString() ?? '';
         final ctx = obj['ctx']?.toString() ?? '';
-        debugPrint('[BrowseTab][injector][$level] $msg${ctx.isNotEmpty ? ' | ' + ctx : ''}');
+        debugPrint('[BrowseTab][injector][$level] $msg${ctx.isNotEmpty ? ' | $ctx' : ''}');
       }
     } catch (e) {
       debugPrint('Injected message parse error: $e');
@@ -1073,10 +1075,11 @@ a.tag, .tag { background-color: #2b3134 !important; color: #e8e6e3 !important; }
                     value: checked,
                     onChanged: (v) {
                       setState(() {
-                        if (v == true)
+                        if (v == true) {
                           selected.add(c);
-                        else
+                        } else {
                           selected.remove(c);
+                        }
                       });
                     },
                   );
@@ -1119,8 +1122,9 @@ a.tag, .tag { background-color: #2b3134 !important; color: #e8e6e3 !important; }
       await storage.saveWork(work);
       await storage.setCategoriesForWork(work.id, chosen);
       await _confirmSaveInWebview(workId);
-      if (mounted)
+      if (mounted) {
         _showSnackBar('Saved “${work.title}” to ${chosen.join(', ')}.');
+      }
     } catch (e) {
       debugPrint('Save from listing failed: $e');
       await _cancelSaveInWebview(workId);

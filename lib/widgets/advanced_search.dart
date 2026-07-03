@@ -4,8 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 class AdvancedSearchScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> initialFilters;
 
-  const AdvancedSearchScreen({Key? key, this.initialFilters = const {}})
-    : super(key: key);
+  const AdvancedSearchScreen({super.key, this.initialFilters = const {}});
 
   @override
   ConsumerState<AdvancedSearchScreen> createState() =>
@@ -349,18 +348,26 @@ class _AdvancedSearchScreenState extends ConsumerState<AdvancedSearchScreen> {
     String groupValue,
     ValueChanged<String?> onChanged,
   ) {
+    // RadioGroup (Flutter 3.32+) manages the group value/change handling that
+    // used to live on each RadioListTile.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
-        ...options.entries.map(
-          (e) => RadioListTile<String>(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            title: Text(e.value),
-            value: e.key,
-            groupValue: groupValue,
-            onChanged: onChanged,
+        RadioGroup<String>(
+          groupValue: groupValue,
+          onChanged: onChanged,
+          child: Column(
+            children: options.entries
+                .map(
+                  (e) => RadioListTile<String>(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(e.value),
+                    value: e.key,
+                  ),
+                )
+                .toList(),
           ),
         ),
       ],

@@ -1,62 +1,43 @@
-# FicBatch v1.2.0
+# FicBatch v0.7.1
 
-The first release after the full review-and-overhaul cycle (iterations 1–4).
-Everything below is new or fixed since the previous release.
+Follow-up to the overhaul release: cross-device sync on Android, fixes for
+everything found in manual testing, personalization themes, and a leaner
+codebase.
 
-## ✨ New features
+## ✨ New
 
-- **Cross-device sync (Sync Folder)** — auto-export your library, reading
-  progress and history to a folder of your choice and merge-import on launch;
-  pair the folder with Syncthing/Dropbox/iCloud to sync every device.
-  Exports now include reading history (format v2).
-- **Library search, sort & multi-select** — search by title/author/tag; sort
-  by recently added, title, last read, word count, or favorites first;
-  long-press/select mode with bulk move, download and remove.
-- **Favorites** — star works from cards or the context menu, sort favorites
-  first.
-- **Full reader settings** — line height, font family (serif/sans/mono),
-  sepia reading theme, chapter-jump toggle; editable in-reader and from
-  Settings, persisted everywhere.
-- **Downloads settings** — pick/re-pick a download folder on desktop (with
-  migration), global auto-download toggle, download throttle selector, and
-  Clear All Downloads.
-- **Native file dialogs** for library export/import (JSON paste box remains
-  as a fallback).
-- **First-run onboarding** with a replay option in Settings.
-- **System theme mode** (follows your OS light/dark) alongside Light/Dark.
-- **Data management** — Clear Reading History, and a typed-confirmation
-  Reset App Data.
+- **Sync folder on Android** — pick a folder (grant "All files access" when
+  prompted) and pair it with Syncthing/Dropbox to sync your library, reading
+  progress and history with your desktop. Plus an hourly background sync
+  while the app is open.
+- **App Color themes** — seven Material 3 personalities (Violet, Ocean,
+  Forest, Rose, Amber, Crimson, Mono) tinting the whole UI in light & dark.
+- **Reading themes** — Sepia joined by Night (true black), Soft gray and
+  Paper, in-reader and as a Settings default.
 
-## 🐛 Fixes
+## 🐛 Fixed (from manual-testing reports)
 
-- **Browse tab slow/blank screen** — the page now appears as soon as it
-  loads (enhancements apply afterwards), a spinner always shows while
-  loading, and a watchdog force-reveals if anything hangs.
-- **Imported works finally carry full metadata** — tags, summary,
-  word/chapter counts, kudos/hits/comments, published/updated dates (the
-  metadata scraper previously returned only title/author).
-- **Update sync hardened** — robust AO3 date parsing shared with the
-  importer; sync also refreshes word counts, stats, summary and tags.
-- **Android 13+ notifications** — runtime permission request plus manifest
-  fixes so update notifications actually appear; background sync survives
-  reboots.
-- Removing a work from its last category no longer silently deletes it.
-- Duplicate saves now notify "already in category" instead of silently
-  re-saving.
-- Reading history unified (one schema, capped at 500) and now shows the
-  chapter you stopped at.
+- **Works saved too fast from browse** no longer end up as "Work #123 /
+  Unknown" — the reader repairs placeholder metadata automatically on open,
+  sync repairs it too, and progress saves can no longer overwrite good
+  metadata with placeholders.
+- **Physical mouse on Android**: clicking a popup menu item no longer
+  clicks through into the website underneath.
+- **History updates instantly** — the History tab live-updates, and closing
+  the reader records your final chapter immediately.
+- **Downloads tell you why they fail** (rate limit with wait time, deleted
+  work, login-restricted work, network/file errors) instead of a generic
+  "failed"; all AO3 requests now pace themselves with randomized delays and
+  bulk downloads stop when AO3 asks to slow down (HTTP 429).
+- The rating/warning symbol squares no longer show their text labels.
+- Dark mode: navigation links lost their boxed dark-grey backgrounds.
 
 ## 🧰 Under the hood
 
-- Flutter **3.44.4** / Dart 3.12, modern dependencies (webview_flutter 4.14,
-  flutter_local_notifications 19, http 1.x), storage migrated to the
-  maintained **hive_ce** (existing data stays readable).
-- CI now runs analyze + tests + headless DOM tests of the AO3 injector
-  JS on every push; per-push artifact builds for Android/Windows/Linux.
-- Web platform support removed — FicBatch's value is the local library and
-  offline reading; for browsing only, AO3 itself is the web app.
-- Deprecation cleanup (`withOpacity` → `withValues`, Material 3 defaults) and
-  a much larger test suite (unit, widget, Hive round-trip, jsdom).
+- Dead-code sweep: ~500 lines of unused/superseded code removed.
+- Deprecation cleanup incl. the new RadioGroup API; 22 style lints fixed.
+- New widget tests for the History/Updates/Library tabs on a real Hive store.
+- Builds are manual-only now (no auto-builds on every commit).
 
-**Full changelog:** see the commit history of the
-`claude/flutter-review-roadmap-160ll5` branch.
+**Note for Android:** notifications need Android 13+; folder sync asks for
+"All files access". iOS build requires iOS 14+.
