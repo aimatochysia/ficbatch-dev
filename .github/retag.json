@@ -1,5 +1,6 @@
 {
   "_comment": "Consumed by .github/workflows/retag.yml on push: points the tag at the sha. Last used to move v0.7.1 off main onto the commit the release was actually built from.",
+  "attempt": 2,
   "tag": "v0.7.1",
   "sha": "ebd7b8f46bcaf3134758c2e3e14dc7c96f8fd03f"
 }

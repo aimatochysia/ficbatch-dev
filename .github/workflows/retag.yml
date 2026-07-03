@@ -49,23 +49,36 @@ jobs:
               core.setFailed('tag and sha are required');
               return;
             }
+            const { owner, repo } = context.repo;
+
+            // Deleting a release's tag converts the release to a draft, so
+            // grab its id first to re-publish it afterwards.
+            let releaseId = null;
             try {
-              await github.rest.git.updateRef({
-                ...context.repo,
-                ref: `tags/${tag}`,
-                sha,
-                force: true,
-              });
-              core.info(`Updated refs/tags/${tag} -> ${sha}`);
+              const rel = await github.rest.repos.getReleaseByTag({ owner, repo, tag });
+              releaseId = rel.data.id;
             } catch (e) {
-              if (e.status === 422) {
-                await github.rest.git.createRef({
-                  ...context.repo,
-                  ref: `refs/tags/${tag}`,
-                  sha,
-                });
-                core.info(`Created refs/tags/${tag} -> ${sha}`);
-              } else {
-                throw e;
-              }
+              if (e.status !== 404) throw e;
+            }
+
+            // GITHUB_TOKEN may not force-move a tag across commits whose
+            // workflow files differ (needs workflows:write, which Actions
+            // tokens can't have) — delete + recreate instead.
+            try {
+              await github.rest.git.deleteRef({ owner, repo, ref: `tags/${tag}` });
+              core.info(`Deleted refs/tags/${tag}`);
+            } catch (e) {
+              if (e.status !== 404 && e.status !== 422) throw e;
+            }
+
+            await github.rest.git.createRef({
+              owner, repo, ref: `refs/tags/${tag}`, sha,
+            });
+            core.info(`Created refs/tags/${tag} -> ${sha}`);
+
+            if (releaseId !== null) {
+              await github.rest.repos.updateRelease({
+                owner, repo, release_id: releaseId, tag_name: tag, draft: false,
+              });
+              core.info(`Re-published release ${releaseId} on ${tag}`);
             }
