@@ -13,6 +13,12 @@ class BrowseToolbar extends StatelessWidget {
   final VoidCallback onLoadSavedSearch;
   final VoidCallback onSaveToLibrary;
 
+  /// Fired when a popup menu opens/closes. The browse tab uses this to place
+  /// a transparent pointer-blocking overlay above the webview: with a
+  /// physical mouse on Android, clicks on popup items also reach the webview
+  /// underneath (platform-view event leak) and navigate the page.
+  final ValueChanged<bool>? onMenuOpenChanged;
+
   // Layout constants for compact mode (mobile-style)
   static const double _compactModeBreakpoint = 600;
   static const double _compactButtonSize = 32;
@@ -34,7 +40,11 @@ class BrowseToolbar extends StatelessWidget {
     required this.onSaveCurrentSearch,
     required this.onLoadSavedSearch,
     required this.onSaveToLibrary,
+    this.onMenuOpenChanged,
   });
+
+  void _menuOpened() => onMenuOpenChanged?.call(true);
+  void _menuClosed() => onMenuOpenChanged?.call(false);
 
   @override
   Widget build(BuildContext context) {
@@ -97,7 +107,10 @@ class BrowseToolbar extends StatelessWidget {
               minWidth: _compactButtonSize,
               minHeight: _compactButtonSize,
             ),
+            onOpened: _menuOpened,
+            onCanceled: _menuClosed,
             onSelected: (v) {
+              _menuClosed();
               if (v == 'quick') onQuickSearch();
               if (v == 'advanced') onAdvancedSearch();
             },
@@ -121,7 +134,10 @@ class BrowseToolbar extends StatelessWidget {
               minWidth: _compactButtonSize,
               minHeight: _compactButtonSize,
             ),
+            onOpened: _menuOpened,
+            onCanceled: _menuClosed,
             onSelected: (v) {
+              _menuClosed();
               if (v == 'save') onSaveCurrentSearch();
               if (v == 'load') onLoadSavedSearch();
             },
@@ -151,7 +167,10 @@ class BrowseToolbar extends StatelessWidget {
           PopupMenuButton<String>(
             icon: const Icon(Icons.arrow_drop_down),
             tooltip: 'More search options',
+            onOpened: _menuOpened,
+            onCanceled: _menuClosed,
             onSelected: (v) {
+              _menuClosed();
               if (v == 'quick') onQuickSearch();
               if (v == 'advanced') onAdvancedSearch();
             },
@@ -175,7 +194,10 @@ class BrowseToolbar extends StatelessWidget {
           PopupMenuButton<String>(
             icon: const Icon(Icons.arrow_drop_down),
             tooltip: 'Bookmarks',
+            onOpened: _menuOpened,
+            onCanceled: _menuClosed,
             onSelected: (v) {
+              _menuClosed();
               if (v == 'save') onSaveCurrentSearch();
               if (v == 'load') onLoadSavedSearch();
             },

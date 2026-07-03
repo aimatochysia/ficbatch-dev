@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -20,6 +21,14 @@ class DownloadResult {
 /// Service for downloading works from AO3
 class DownloadService {
   static const String _ao3DownloadBaseUrl = 'https://archiveofourown.org/downloads';
+
+  static final Random _rng = Random();
+
+  /// Polite pacing between consecutive AO3 requests: the configured base
+  /// delay plus a random 250–1250 ms so bursts don't hit the server in a
+  /// regular rhythm.
+  static Duration jitteredDelay(int baseMs) =>
+      Duration(milliseconds: baseMs + 250 + _rng.nextInt(1000));
 
   /// User-picked download folder (desktop only). When null, downloads go to the
   /// app documents directory. Set once at startup from the stored setting and
@@ -180,9 +189,9 @@ class DownloadService {
 
       onProgress?.call(i + 1, workIds.length);
 
-      // Throttle to avoid overwhelming AO3
+      // Throttle to avoid overwhelming AO3 (base delay + random jitter)
       if (i < workIds.length - 1) {
-        await Future.delayed(throttleDelay);
+        await Future.delayed(jitteredDelay(throttleDelay.inMilliseconds));
       }
     }
 

@@ -22,6 +22,19 @@
 
     log('info', 'injector start', location.pathname);
 
+    // Hide the redundant text inside the required-tags symbol squares (AO3's
+    // own CSS normally hides it; our style overrides can reveal it). Keeps the
+    // icons, classes and links intact.
+    try {
+      var reqTagsCssId = '__fb_required_tags_css';
+      if (!document.getElementById(reqTagsCssId)) {
+        var reqTagsStyle = document.createElement('style');
+        reqTagsStyle.id = reqTagsCssId;
+        reqTagsStyle.textContent = 'ul.required-tags span.text { display: none !important; }';
+        (document.head || document.documentElement).appendChild(reqTagsStyle);
+      }
+    } catch(_) {}
+
     if (!window.__fb_save_state) {
       window.__fb_save_state = { processed: new Set() };
       log('info', 'save_state created', '');

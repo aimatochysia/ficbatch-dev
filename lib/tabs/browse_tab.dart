@@ -37,6 +37,7 @@ class _BrowseTabState extends ConsumerState<BrowseTab> {
   String? _pendingThemeMode;
   bool _pageReady = false;
   bool _coverVisible = false;
+  bool _menuBlockerActive = false;
   Timer? _loadWatchdog;
   bool _winInitialLoadComplete = false; // Track if initial page load is complete
   bool get _winInited => _winController != null && _winController!.value.isInitialized;
@@ -340,10 +341,13 @@ class _BrowseTabState extends ConsumerState<BrowseTab> {
             ignoreInlineStyle: [],
             ignoreImageAnalysis: [],
             css: `
+/* Dark mode: nav/action links are plain text, no boxed background
+   (user preference — link text should not carry a background color). */
 .pagination a, .pagination .current, .actions a, .navigation.actions a,
 .listbox .actions a, .listbox .heading .actions a, .listbox.group ul li a,
 ul.actions li a, ol.actions li a, .secondary .actions a, .filters .group .actions a {
-  background-color: #2a2f32 !important; color: #e8e6e3 !important; border: 1px solid #3a3e41 !important;
+  background: none !important; color: #e8e6e3 !important;
+  border: none !important; box-shadow: none !important;
 }
 input, select, textarea, button {
   background-color: #262a2b !important; color: #e8e6e3 !important; border: 1px solid #3a3e41 !important;
@@ -432,6 +436,12 @@ a.tag, .tag { background-color: #2b3134 !important; color: #e8e6e3 !important; }
           s.textContent = `
             html, body { background-color: #121212 !important; color: #e0e0e0 !important; }
             * { background-color: transparent !important; color: inherit !important; }
+            /* In dark mode, nav/action links must not get a boxed background */
+            ul.navigation.actions a, .navigation.actions a {
+              background: none !important;
+              border-color: transparent !important;
+              box-shadow: none !important;
+            }
           `;
           (document.documentElement || document.body).prepend(s);
           console.log('[FB-Dark] early style injected');
@@ -513,6 +523,20 @@ a.tag, .tag { background-color: #2b3134 !important; color: #e8e6e3 !important; }
       if (!mounted) return;
       setState(() => _coverVisible = false);
     });
+  }
+
+  /// While a toolbar popup menu is open (and briefly after it closes), block
+  /// pointer events from reaching the webview: with a physical mouse on
+  /// Android, clicks on menu items leak through the platform view and
+  /// navigate the page underneath.
+  void _handleMenuOpenChanged(bool open) {
+    if (open) {
+      setState(() => _menuBlockerActive = true);
+    } else {
+      Future.delayed(const Duration(milliseconds: 350), () {
+        if (mounted) setState(() => _menuBlockerActive = false);
+      });
+    }
   }
 
   /// Make the webview visible and clear every loading overlay. Centralized so
@@ -1007,6 +1031,7 @@ a.tag, .tag { background-color: #2b3134 !important; color: #e8e6e3 !important; }
                 );
               },
               onSaveToLibrary: _confirmAndSaveToLibrary,
+              onMenuOpenChanged: _handleMenuOpenChanged,
             ),
           ),
           if (_isLoading) const LinearProgressIndicator(minHeight: 2),
@@ -1043,6 +1068,12 @@ a.tag, .tag { background-color: #2b3134 !important; color: #e8e6e3 !important; }
                     ),
                   ),
                 ),
+                // Invisible click shield while a toolbar popup is open, so
+                // mouse clicks on menu items can't leak into the webview.
+                if (_menuBlockerActive)
+                  Positioned.fill(
+                    child: Container(color: Colors.transparent),
+                  ),
               ],
             ),
           ),

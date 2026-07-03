@@ -11,6 +11,7 @@ import '../providers/storage_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/storage_service.dart';
 import '../services/download_service.dart';
+import '../services/ao3_service.dart';
 import 'settings_tab.dart' show ReaderMode, readerModeProvider;
 
 class ReaderScreen extends ConsumerStatefulWidget {
@@ -54,6 +55,60 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     _loadReaderSettings();
     _initWebView();
     _startAutosaveTimer();
+    _repairMetadataIfNeeded();
+  }
+
+  /// True for values produced by the browse placeholder path ("Work #123",
+  /// Unknown author) or effectively-empty strings.
+  static bool _isPlaceholderTitle(String t) =>
+      t.trim().isEmpty || RegExp(r'^Work #\d+$').hasMatch(t.trim());
+  static bool _isPlaceholderAuthor(String a) {
+    final v = a.trim().toLowerCase();
+    return v.isEmpty || v == 'unknown' || v == 'unknown author';
+  }
+
+  /// If the stored library record still carries placeholder metadata (created
+  /// when a work was opened from browse before its page finished loading),
+  /// re-fetch the real metadata from AO3 and fill it in. Only placeholders are
+  /// overwritten — genuinely empty fields on AO3 stay as-is.
+  Future<void> _repairMetadataIfNeeded() async {
+    try {
+      final storage = ref.read(storageProvider);
+      final stored = storage.getWork(widget.work.id);
+      if (stored == null) return; // not in library — nothing to repair
+      final badTitle = _isPlaceholderTitle(stored.title);
+      final badAuthor = _isPlaceholderAuthor(stored.author);
+      if (!badTitle && !badAuthor) return;
+
+      final meta = await Ao3Service().fetchWorkMetadata(stored.id);
+      final title = (meta['title'] as String?)?.trim() ?? '';
+      final author = (meta['author'] as String?)?.trim() ?? '';
+      final tags =
+          meta['tags'] is List ? List<String>.from(meta['tags'] as List) : null;
+
+      final current = storage.getWork(stored.id) ?? stored;
+      await storage.saveWork(current.copyWith(
+        title: (badTitle && title.isNotEmpty && title != 'Unknown title')
+            ? title
+            : null,
+        author:
+            (badAuthor && author.isNotEmpty && author != 'Unknown author')
+                ? author
+                : null,
+        tags: (current.tags.isEmpty && tags != null && tags.isNotEmpty)
+            ? tags
+            : null,
+        summary: (current.summary == null || current.summary!.isEmpty)
+            ? meta['summary'] as String?
+            : null,
+        wordsCount: meta['wordsCount'] as int?,
+        chaptersCount: meta['chaptersCount'] as int?,
+        updatedAt: meta['updatedAt'] as DateTime?,
+      ));
+      debugPrint('[Reader] Repaired placeholder metadata for ${stored.id}');
+    } catch (e) {
+      debugPrint('[Reader] Metadata repair failed: $e');
+    }
   }
 
   @override
@@ -86,7 +141,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         ? _chapters[_currentChapterIndex].title
         : null;
 
-    final updatedProgress = widget.work.readingProgress.copyWith(
+    // Same stored-record basing as _saveProgress (see comment there).
+    final base = _cachedStorage!.getWork(widget.work.id) ?? widget.work;
+
+    final updatedProgress = base.readingProgress.copyWith(
       chapterIndex: _currentChapterIndex,
       chapterAnchor: chapterAnchor,
       chapterName: chapterName,
@@ -95,7 +153,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       paragraphAnchor: _currentParagraphAnchor,
     );
 
-    final updatedWork = widget.work.copyWith(
+    final updatedWork = base.copyWith(
       readingProgress: updatedProgress,
       lastUserOpened: DateTime.now(),
     );
@@ -779,7 +837,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
             invert: [],
             ignoreInlineStyle: [],
             ignoreImageAnalysis: [],
-            css: ''
+            css: 'ul.navigation.actions a, .navigation.actions a { background: none !important; border: none !important; box-shadow: none !important; }'
           };
           DarkReader.enable(theme, fixes);
           try { document.documentElement.style.colorScheme = 'dark'; } catch(_) {}
@@ -1256,7 +1314,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         ? _chapters[_currentChapterIndex].title
         : null;
 
-    final updatedProgress = widget.work.readingProgress.copyWith(
+    // Base the save on the STORED record when it exists: widget.work can be a
+    // stale placeholder ("Work #id" / Unknown) from browse navigation, and
+    // saving it verbatim used to clobber repaired/synced metadata.
+    final base = storage.getWork(widget.work.id) ?? widget.work;
+
+    final updatedProgress = base.readingProgress.copyWith(
       chapterIndex: _currentChapterIndex,
       chapterAnchor: chapterAnchor,
       chapterName: chapterName,
@@ -1265,7 +1328,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       paragraphAnchor: _currentParagraphAnchor,
     );
 
-    final updatedWork = widget.work.copyWith(
+    final updatedWork = base.copyWith(
       readingProgress: updatedProgress,
       lastUserOpened: DateTime.now(),
     );

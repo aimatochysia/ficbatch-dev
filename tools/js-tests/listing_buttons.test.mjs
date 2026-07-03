@@ -52,6 +52,13 @@ for (const viewport of Object.keys(VIEWPORTS)) {
     for (const btn of buttons) assert.equal(btn.textContent, 'Save');
   });
 
+  test(`[${viewport}] injects CSS hiding required-tags text`, async () => {
+    const dom = await inject({ viewport });
+    const style = dom.window.document.getElementById('__fb_required_tags_css');
+    assert.ok(style, 'required-tags style tag present');
+    assert.match(style.textContent, /required-tags span\.text[^}]*display:\s*none/);
+  });
+
   test(`[${viewport}] discovers work ids from li id, class, and href`, async () => {
     const dom = await inject({ viewport });
     const ids = dom.window.__fb_save_state

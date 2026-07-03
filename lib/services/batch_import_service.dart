@@ -150,9 +150,10 @@ class BatchImportService {
           }
         }
         
-        // Throttle to avoid overwhelming AO3
+        // Throttle to avoid overwhelming AO3 (base delay + random jitter)
         if (i < workIds.length - 1) {
-          await Future.delayed(throttleDelay);
+          await Future.delayed(
+              DownloadService.jitteredDelay(throttleDelay.inMilliseconds));
         }
       } catch (e) {
         debugPrint('[BatchImportService] Error importing work $workId: $e');

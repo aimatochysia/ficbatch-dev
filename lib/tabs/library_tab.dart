@@ -402,11 +402,17 @@ class _LibraryTabState extends ConsumerState<LibraryTab> {
         } else {
           failed++;
           lastError = result.error;
+          // Rate-limited: hammering on is counterproductive — stop the batch.
+          if ((result.error ?? '').contains('429')) {
+            failed += works.length - i - 1;
+            break;
+          }
         }
 
-        // Throttle downloads (configurable in Settings → Downloads)
+        // Throttle downloads (configurable base in Settings → Downloads,
+        // plus random jitter to stay gentle on AO3)
         if (i < works.length - 1) {
-          await Future.delayed(Duration(milliseconds: throttleMs));
+          await Future.delayed(DownloadService.jitteredDelay(throttleMs));
         }
       }
 

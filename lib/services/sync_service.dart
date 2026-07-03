@@ -8,6 +8,7 @@ import 'package:hive_ce_flutter/hive_flutter.dart';
 import '../models/work.dart';
 import '../models/reading_progress.dart';
 import 'ao3_service.dart';
+import 'download_service.dart';
 import 'storage_service.dart';
 
 /// Sync intervals in hours
@@ -247,7 +248,26 @@ class SyncService {
           final tags = meta['tags'] is List
               ? List<String>.from(meta['tags'] as List)
               : null;
+          // Repair placeholder records ("Work #123" / Unknown) left by the
+          // browse quick-open path.
+          final metaTitle = (meta['title'] as String?)?.trim() ?? '';
+          final metaAuthor = (meta['author'] as String?)?.trim() ?? '';
+          final titleIsPlaceholder = work.title.trim().isEmpty ||
+              RegExp(r'^Work #\d+$').hasMatch(work.title.trim());
+          final authorIsPlaceholder = work.author.trim().isEmpty ||
+              work.author.trim().toLowerCase() == 'unknown' ||
+              work.author.trim().toLowerCase() == 'unknown author';
           var refreshed = work.copyWith(
+            title: (titleIsPlaceholder &&
+                    metaTitle.isNotEmpty &&
+                    metaTitle != 'Unknown title')
+                ? metaTitle
+                : null,
+            author: (authorIsPlaceholder &&
+                    metaAuthor.isNotEmpty &&
+                    metaAuthor != 'Unknown author')
+                ? metaAuthor
+                : null,
             updatedAt: newUpdatedAt,
             wordsCount: meta['wordsCount'] as int?,
             chaptersCount: meta['chaptersCount'] as int?,
@@ -277,8 +297,8 @@ class SyncService {
           debugPrint('[SyncService] Error checking work ${work.id}: $e');
         }
 
-        // Small delay to avoid rate limiting.
-        await Future.delayed(const Duration(milliseconds: 500));
+        // Pace requests to avoid rate limiting (base + random jitter).
+        await Future.delayed(DownloadService.jitteredDelay(800));
       }
       
       // Save updates to settings
