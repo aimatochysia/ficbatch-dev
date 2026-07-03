@@ -418,6 +418,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.TAG }}
+          # Without this, a fresh tag is created on the default branch, not
+          # the commit that was actually built.
+          target_commitish: ${{ github.sha }}
           name: ${{ env.RELEASE_NAME }}
           body: ${{ env.RELEASE_BODY }}
           files: |

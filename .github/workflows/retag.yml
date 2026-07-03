@@ -1,0 +1,49 @@
+name: Retag (maintenance)
+
+# Utility: point a tag at a specific commit. Needed when a release tag was
+# created on the wrong commit (before flutter_build.yml passed
+# target_commitish, a fresh tag landed on the default branch instead of the
+# built sha). Manual-only; does not build or release anything.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag name (e.g. v0.7.1)"
+        required: true
+      sha:
+        description: "Commit SHA the tag should point at"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  retag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Point tag at commit
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tag = context.payload.inputs.tag;
+            const sha = context.payload.inputs.sha;
+            try {
+              await github.rest.git.updateRef({
+                ...context.repo,
+                ref: `tags/${tag}`,
+                sha,
+                force: true,
+              });
+              core.info(`Updated refs/tags/${tag} -> ${sha}`);
+            } catch (e) {
+              if (e.status === 422) {
+                await github.rest.git.createRef({
+                  ...context.repo,
+                  ref: `refs/tags/${tag}`,
+                  sha,
+                });
+                core.info(`Created refs/tags/${tag} -> ${sha}`);
+              } else {
+                throw e;
+              }
+            }
