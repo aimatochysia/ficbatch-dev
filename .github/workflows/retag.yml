@@ -51,19 +51,16 @@ jobs:
             }
             const { owner, repo } = context.repo;
 
-            // Deleting a release's tag converts the release to a draft, so
-            // grab its id first to re-publish it afterwards.
-            let releaseId = null;
-            try {
-              const rel = await github.rest.repos.getReleaseByTag({ owner, repo, tag });
-              releaseId = rel.data.id;
-            } catch (e) {
-              if (e.status !== 404) throw e;
-            }
+            // GITHUB_TOKEN cannot create/move a tag ref pointing at a commit
+            // whose workflow files differ from the default branch (the refs
+            // API demands workflows:write, which Actions tokens can't get).
+            // The releases API creates tags server-side on publish, so when a
+            // release exists for the tag we go through that instead.
+            const releases = await github.rest.repos.listReleases({ owner, repo, per_page: 100 });
+            const rel = releases.data.find((r) => r.tag_name === tag);
 
-            // GITHUB_TOKEN may not force-move a tag across commits whose
-            // workflow files differ (needs workflows:write, which Actions
-            // tokens can't have) — delete + recreate instead.
+            // Drop the old tag if present (deleting a published release's tag
+            // converts the release to a draft; re-published below).
             try {
               await github.rest.git.deleteRef({ owner, repo, ref: `tags/${tag}` });
               core.info(`Deleted refs/tags/${tag}`);
@@ -71,14 +68,25 @@ jobs:
               if (e.status !== 404 && e.status !== 422) throw e;
             }
 
-            await github.rest.git.createRef({
-              owner, repo, ref: `refs/tags/${tag}`, sha,
-            });
-            core.info(`Created refs/tags/${tag} -> ${sha}`);
-
-            if (releaseId !== null) {
-              await github.rest.repos.updateRelease({
-                owner, repo, release_id: releaseId, tag_name: tag, draft: false,
+            if (rel) {
+              try {
+                await github.rest.repos.updateRelease({
+                  owner, repo, release_id: rel.id,
+                  tag_name: tag, target_commitish: sha, draft: false,
+                });
+                core.info(`Published release ${rel.id}: ${tag} -> ${sha}`);
+              } catch (e) {
+                // Restore the previous published state (tag on the release's
+                // stored target branch) rather than leaving a draft behind.
+                core.warning(`Publish at ${sha} failed (${e.status}); republishing on the stored target`);
+                await github.rest.repos.updateRelease({
+                  owner, repo, release_id: rel.id, tag_name: tag, draft: false,
+                });
+                core.setFailed(`Could not point ${tag} at ${sha}; release republished on its previous target`);
+              }
+            } else {
+              await github.rest.git.createRef({
+                owner, repo, ref: `refs/tags/${tag}`, sha,
               });
-              core.info(`Re-published release ${releaseId} on ${tag}`);
+              core.info(`Created refs/tags/${tag} -> ${sha}`);
             }
