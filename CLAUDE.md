@@ -27,25 +27,22 @@ offline reading, sync to detect new chapters, and track reading progress.
 ```
 lib/
   main.dart                      # App entry, MaterialApp, bottom-nav scaffold (6 tabs)
+  hive_registrar.g.dart          # generated adapter-registration extension
   models/
     work.dart / .g.dart          # Hive typeId 1 — the central Work entity
     reading_progress.dart/.g     # Hive typeId 0 — per-work reading position
-    history_entry.dart/.g        # Hive typeId 2 — NOT registered; used only as a JSON helper
   providers/
-    storage_provider.dart        # storageProvider (overridden in main), workListProvider, categoriesProvider
-    theme_provider.dart          # ThemeMode (light/dark only)
+    storage_provider.dart        # storageProvider + syncFolderProvider (overridden in main), work/category streams
+    theme_provider.dart          # ThemeMode (system/light/dark) + AppColorTheme seeds
     navigation_provider.dart     # bottom-nav index
-    browse_provider.dart         # reader-mode JS injected into the AO3 webview
-  repositories/
-    work_repository.dart         # addFromUrl(...) — partially superseded by services
   services/
-    ao3_service.dart             # AO3 metadata fetch + HTML cleaning  (INCOMPLETE — see findings)
-    storage_service.dart         # Hive/prefs facade: works, categories, history, export
-    download_service.dart        # download work HTML to app docs dir
+    ao3_service.dart             # AO3 metadata fetch (full) + HTML cleaning
+    storage_service.dart         # Hive/prefs facade: works, categories, history
+    download_service.dart        # DownloadResult downloads, folder config, jitter
     batch_import_service.dart    # parse many URLs/IDs and import
-    library_export_service.dart  # JSON export/import (versioned), auto-download flags
+    library_export_service.dart  # JSON export/import v2 (works+history), merge logic
     sync_service.dart            # update detection, notifications, workmanager dispatcher
-    work_saver.dart              # EMPTY 0-byte FILE (dead)
+    sync_folder_service.dart     # cross-device sync via a watched folder
   tabs/
     home_tab.dart                # dashboard: streak/check-in/usage timer + batch import
     library_tab.dart             # categories as tabs, grid/list, per-work context menu
@@ -53,14 +50,15 @@ lib/
     browse_tab.dart              # embedded AO3 webview + add-to-library
     history_tab.dart             # reading history grouped by day
     settings_tab.dart            # settings + sync/export/import + Windows sync manager
-    reader_screen.dart           # the reader (online/offline, autosave, chapter nav)
-    browse/                      # browse webview helpers (toolbar, search, extractors, injectors)
+    reader_screen.dart           # the reader (online/offline, autosave, repair, themes)
+    onboarding_screen.dart       # first-run welcome (replayable from Settings)
+    browse/                      # browse webview helpers (toolbar, search, extractors, injector loader)
   widgets/
     advanced_search.dart         # AO3 advanced search form (used by browse)
-    work_card.dart               # UNUSED dead widget
-test/
-  widget_test.dart               # BROKEN — still the default counter template
-.github/workflows/               # build/release pipelines (no analyze/test gate)
+assets/js/listing_buttons.js     # the injected listing-save script (tested in tools/js-tests)
+test/                            # unit + widget + Hive round-trip tests
+tools/js-tests/                  # Node+jsdom DOM tests for the injector (CI job)
+.github/workflows/               # ci.yml (auto), artifacts + releases (manual dispatch)
 ```
 
 ## 3. Build, run, test
@@ -91,9 +89,10 @@ flutter build windows --release        # Windows
   `sync_service.dart`** (a generated `lib/hive_registrar.g.dart` extension is
   also available).
 - All CI/build workflows pin Flutter `3.44.4`. `ci.yml` (analyze + test +
-  js-dom-tests) and `iteration-artifacts.yml` run on every push;
-  `flutter_build.yml` (full release) and `build-flutter-android.yml` are
-  `workflow_dispatch`.
+  js-dom-tests) runs on every push; `iteration-artifacts.yml`,
+  `flutter_build.yml` (full release; takes a `release_tag` input) and
+  `build-flutter-android.yml` are manual `workflow_dispatch` **by user
+  request — never trigger builds/releases without being asked**.
 
 ## 4. Conventions
 
@@ -318,10 +317,18 @@ Iteration 5 — **done**
       surfaced with reasons (DownloadResult)
 - [x] Artifact builds manual-only; releases only on user request; v1.3.0+4
 
-Iteration 6+ candidates (see `question_6.md`)
-- [ ] Widget tests for the remaining tabs
-- [ ] RadioGroup migration in `advanced_search.dart` (deprecated Radio API)
-- [ ] Info-level lint cleanup (~40 style lints)
+Iteration 6 — **done**
+- [x] Dead-code sweep (~500 lines: work_repository, browse_provider,
+      ao3_list_injector, unused providers/members, superseded browse_tab methods)
+- [x] RadioGroup migration (last deprecated API) + 22 automated lint fixes
+      (12 `use_build_context_synchronously` infos remain)
+- [x] Widget tests for History/Updates/Library tabs (real Hive store,
+      writes via tester.runAsync)
+- [x] Release v0.7.1 (tag input added to flutter_build.yml; version 0.7.1+5)
+
+Iteration 7 candidates (see `question_7.md`)
+- [ ] Manual `use_build_context_synchronously` cleanup (12 infos)
+- [ ] User's v0.7.1 testing feedback
 
 ---
 
