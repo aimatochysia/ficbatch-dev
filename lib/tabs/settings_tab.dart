@@ -13,6 +13,7 @@ import '../services/sync_service.dart';
 import '../services/library_export_service.dart';
 import '../services/download_service.dart';
 import 'onboarding_screen.dart';
+import 'reader_screen.dart' show ReaderScreen;
 
 /// Reader mode options for controlling content source
 enum ReaderMode {
@@ -954,17 +955,16 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
                   ),
                   ListTile(
                     title: const Text('Reading Theme'),
-                    subtitle: const Text('Sepia overrides the app light/dark'),
+                    subtitle:
+                        const Text('Palettes override the app light/dark'),
                     trailing: DropdownButton<String>(
                       value: readingTheme,
                       onChanged: (v) =>
                           setDialogState(() => readingTheme = v ?? 'default'),
-                      items: const [
-                        DropdownMenuItem(
-                            value: 'default',
-                            child: Text('Follow app theme')),
-                        DropdownMenuItem(value: 'sepia', child: Text('Sepia')),
-                      ],
+                      items: ReaderScreen.readingThemeLabels.entries
+                          .map((e) => DropdownMenuItem(
+                              value: e.key, child: Text(e.value)))
+                          .toList(),
                     ),
                   ),
                   SwitchListTile(
@@ -1059,9 +1059,44 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
                 ],
               ),
             ),
-            
+
+            // App color personality (Material 3 seed — tints buttons, cards…)
+            Builder(
+              builder: (context) {
+                final appColor = ref.watch(appColorProvider);
+                final notifier = ref.read(appColorProvider.notifier);
+                return ListTile(
+                  leading: Icon(Icons.color_lens, color: appColor.seed),
+                  title: const Text('App Color'),
+                  subtitle: Text(appColor.label),
+                  trailing: PopupMenuButton<AppColorTheme>(
+                    onSelected: notifier.setTheme,
+                    itemBuilder: (context) => AppColorTheme.values
+                        .map((t) => PopupMenuItem(
+                              value: t,
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 18,
+                                    height: 18,
+                                    decoration: BoxDecoration(
+                                      color: t.seed,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(t.label),
+                                ],
+                              ),
+                            ))
+                        .toList(),
+                  ),
+                );
+              },
+            ),
+
             const Divider(),
-            
+
             // Library View Mode (Grid vs List)
             ListTile(
               leading: Icon(viewMode == LibraryViewMode.grid ? Icons.grid_view : Icons.list),

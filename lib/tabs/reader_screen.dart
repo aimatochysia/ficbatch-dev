@@ -17,6 +17,15 @@ import 'settings_tab.dart' show ReaderMode, readerModeProvider;
 class ReaderScreen extends ConsumerStatefulWidget {
   final Work work;
 
+  /// Reading-theme choices shown in the reader dialog and in Settings.
+  static const Map<String, String> readingThemeLabels = {
+    'default': 'Follow app theme',
+    'sepia': 'Sepia',
+    'night': 'Night (black)',
+    'gray': 'Soft gray (dark)',
+    'paper': 'Paper (light)',
+  };
+
   const ReaderScreen({super.key, required this.work});
 
   @override
@@ -219,36 +228,45 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     }
   }
 
-  /// Apply theme (app light/dark or sepia), text styling, and — on desktop —
-  /// scroll speed, in the right order. Used after page load and whenever a
-  /// reader setting changes.
+  /// Reading-theme palettes (background / text / link). 'default' follows the
+  /// app light/dark theme instead of an overlay.
+  static const Map<String, Map<String, String>> _readingPalettes = {
+    'sepia': {'bg': '#f4ecd8', 'fg': '#5b4636', 'link': '#1c5e8a'},
+    'night': {'bg': '#000000', 'fg': '#c9c9c9', 'link': '#6fa8dc'},
+    'gray': {'bg': '#1f2226', 'fg': '#d6d6d6', 'link': '#7bb0e0'},
+    'paper': {'bg': '#fafaf7', 'fg': '#2e2e2e', 'link': '#1a5fb4'},
+  };
+
+  /// Apply theme (app light/dark or a reading palette), text styling, and —
+  /// on desktop — scroll speed, in the right order. Used after page load and
+  /// whenever a reader setting changes.
   Future<void> _applyAppearance() async {
-    if (_readingTheme == 'sepia') {
+    if (_readingPalettes.containsKey(_readingTheme)) {
       await _applyReadingTheme();
     } else {
       await _applyThemeStyles();
-      await _applyReadingTheme(); // clears any sepia overlay
+      await _applyReadingTheme(); // clears any reading-theme overlay
     }
     await _applyFontSize();
     if (_isDesktop) await _applyScrollSpeed();
   }
 
-  /// Inject (or remove) a sepia reading overlay. When the reading theme is not
-  /// sepia this removes the overlay so the app light/dark theme shows through.
+  /// Inject (or remove) the reading-theme overlay. When the reading theme is
+  /// 'default' this removes the overlay so the app light/dark theme shows.
   Future<void> _applyReadingTheme() async {
     if (_controller == null && _winController == null) return;
-    final sepia = _readingTheme == 'sepia';
-    final js = sepia
+    final palette = _readingPalettes[_readingTheme];
+    final js = palette != null
         ? '''
       (function() {
-        // Disable any active DarkReader so it does not fight the sepia overlay.
+        // Disable any active DarkReader so it does not fight the overlay.
         try { if (window.DarkReader && DarkReader.disable) DarkReader.disable(); } catch(e) {}
         var id = '__fb_reading_theme_style';
         var ex = document.getElementById(id);
         if (ex) ex.remove();
         var s = document.createElement('style');
         s.id = id;
-        s.textContent = 'html, body, #workskin, .userstuff { background: #f4ecd8 !important; color: #5b4636 !important; } a, a:visited { color: #1c5e8a !important; } * { background-color: transparent !important; }';
+        s.textContent = 'html, body, #workskin, .userstuff { background: ${palette['bg']} !important; color: ${palette['fg']} !important; } a, a:visited { color: ${palette['link']} !important; } * { background-color: transparent !important; }';
         (document.head || document.documentElement).appendChild(s);
       })();
     '''
@@ -1512,7 +1530,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                   ),
                   ListTile(
                     title: const Text('Reading Theme'),
-                    subtitle: const Text('Sepia overrides the app light/dark'),
+                    subtitle:
+                        const Text('Palettes override the app light/dark'),
                     trailing: DropdownButton<String>(
                       value: _readingTheme,
                       onChanged: (value) {
@@ -1520,12 +1539,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                         setDialogState(() => _readingTheme = value);
                         _applyAppearance();
                       },
-                      items: const [
-                        DropdownMenuItem(
-                            value: 'default',
-                            child: Text('Follow app theme')),
-                        DropdownMenuItem(value: 'sepia', child: Text('Sepia')),
-                      ],
+                      items: ReaderScreen.readingThemeLabels.entries
+                          .map((e) => DropdownMenuItem(
+                              value: e.key, child: Text(e.value)))
+                          .toList(),
                     ),
                   ),
                   SwitchListTile(

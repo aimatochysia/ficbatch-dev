@@ -83,14 +83,22 @@ class Ao3ReaderApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeProvider);
+    final appColor = ref.watch(appColorProvider);
 
     return MaterialApp(
       title: 'AO3 Reader',
       debugShowCheckedModeBanner: false,
       themeMode: themeMode,
-      // Material 3 is the default since Flutter 3.16.
-      theme: ThemeData.light(),
-      darkTheme: ThemeData.dark(),
+      // Material 3 color schemes seeded from the chosen app personality.
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: appColor.seed),
+      ),
+      darkTheme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: appColor.seed,
+          brightness: Brightness.dark,
+        ),
+      ),
       home: const RootGate(),
     );
   }
