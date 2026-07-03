@@ -93,6 +93,11 @@ flutter build windows --release        # Windows
   `flutter_build.yml` (full release; takes a `release_tag` input) and
   `build-flutter-android.yml` are manual `workflow_dispatch` **by user
   request — never trigger builds/releases without being asked**.
+- `retag.yml` is a maintenance utility that points a tag at a commit by
+  round-tripping through the releases API (GITHUB_TOKEN can't touch tag refs
+  whose target changes workflow files vs main). Trigger it by editing
+  `.github/retag.json` and pushing; `flutter_build.yml` now passes
+  `target_commitish` so release tags land on the built commit, not main.
 
 ## 4. Conventions
 
