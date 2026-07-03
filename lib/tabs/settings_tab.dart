@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/theme_provider.dart';
 import '../providers/storage_provider.dart';
@@ -598,8 +599,30 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
 
   bool _isFolderSyncing = false;
 
-  /// Pick the sync folder (desktop) and enable folder sync.
+  /// On Android, writing to a user-visible folder (where Syncthing/Dropbox
+  /// can see it) requires all-files access. Returns true when we may proceed.
+  Future<bool> _ensureStorageAccess() async {
+    if (!Platform.isAndroid) return true;
+    var status = await Permission.manageExternalStorage.status;
+    if (status.isGranted) return true;
+    status = await Permission.manageExternalStorage.request();
+    if (status.isGranted) return true;
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Folder sync needs "All files access" — enable it for FicBatch '
+              'in the system settings page that just opened, then try again.'),
+          duration: Duration(seconds: 6),
+        ),
+      );
+    }
+    return false;
+  }
+
+  /// Pick the sync folder and enable folder sync.
   Future<void> _pickSyncFolder() async {
+    if (!await _ensureStorageAccess()) return;
     String? selected;
     try {
       selected = await FilePicker.getDirectoryPath(
@@ -1337,9 +1360,12 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
             Builder(
               builder: (context) {
                 final syncFolder = ref.read(syncFolderProvider);
-                final isDesktop = Platform.isWindows ||
+                // Desktop + Android (Android needs the all-files permission,
+                // requested when picking the folder). iOS keeps export/import.
+                final supported = Platform.isWindows ||
                     Platform.isLinux ||
-                    Platform.isMacOS;
+                    Platform.isMacOS ||
+                    Platform.isAndroid;
                 return Column(
                   children: [
                     SwitchListTile(
@@ -1352,7 +1378,7 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
                                 'folder; pair with Syncthing/Dropbox/iCloud',
                       ),
                       value: syncFolder.enabled,
-                      onChanged: !isDesktop
+                      onChanged: !supported
                           ? null
                           : (v) async {
                               if (v && syncFolder.folderPath == null) {
@@ -1363,16 +1389,16 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
                               if (mounted) setState(() {});
                             },
                     ),
-                    if (!isDesktop)
+                    if (!supported)
                       const Padding(
                         padding: EdgeInsets.symmetric(horizontal: 16),
                         child: Text(
-                          'Folder sync is desktop-only for now. On mobile, use '
-                          'Export/Import Library above.',
+                          'Folder sync is not available on this platform yet — '
+                          'use Export/Import Library above.',
                           style: TextStyle(fontSize: 12, color: Colors.grey),
                         ),
                       ),
-                    if (isDesktop && syncFolder.enabled) ...[
+                    if (supported && syncFolder.enabled) ...[
                       ListTile(
                         leading: const Icon(Icons.drive_folder_upload),
                         title: const Text('Change Sync Folder'),

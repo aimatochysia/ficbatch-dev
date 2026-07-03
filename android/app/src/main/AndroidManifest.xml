@@ -6,6 +6,11 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28"/>
     <!-- Android 13+ runtime notification permission for work-update alerts -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- All-files access so the sync folder can live in user storage where
+         sync tools (Syncthing etc.) can reach it. Granted via a settings
+         toggle the app opens on request; fine for a sideloaded app. -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage"/>
     <!-- Allow workmanager to reschedule periodic sync after a reboot -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>

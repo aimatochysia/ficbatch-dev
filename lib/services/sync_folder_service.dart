@@ -26,9 +26,15 @@ class SyncFolderService {
   static const Duration _debounceDelay = Duration(seconds: 5);
 
   Timer? _debounce;
+  Timer? _periodic;
   StreamSubscription? _worksSub;
   StreamSubscription? _settingsSub;
   bool _suppressExport = false;
+
+  /// Periodic full sync (import-if-changed + export) while the app runs.
+  /// Hourly per user request — a temporary debugging cadence until the
+  /// sync-folder mode has been validated across devices.
+  static const Duration periodicInterval = Duration(hours: 1);
 
   bool get enabled =>
       _storage.settingsBox.get(_enabledKey, defaultValue: false) == true;
@@ -80,12 +86,20 @@ class SyncFolderService {
     _settingsSub = _storage.settingsBox.watch().listen((event) {
       if (watchedKeys.contains(event.key)) _scheduleExport();
     });
+    _periodic = Timer.periodic(periodicInterval, (_) {
+      syncNow().catchError((e) {
+        debugPrint('[SyncFolder] Periodic sync failed: $e');
+        return null;
+      });
+    });
     debugPrint('[SyncFolder] Watching for changes → ${_syncFile!.path}');
   }
 
   void stop() {
     _debounce?.cancel();
     _debounce = null;
+    _periodic?.cancel();
+    _periodic = null;
     _worksSub?.cancel();
     _worksSub = null;
     _settingsSub?.cancel();
