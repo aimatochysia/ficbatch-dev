@@ -306,10 +306,22 @@ Phase 4 — **done (iteration 4)**
       with history) — see `docs/research/pears_p2p_sync.md` (incl. the Rust/iroh addendum)
 - [x] Release prep: v1.2.0+3, `RELEASE_NOTES.md` wired into `flutter_build.yml`
 
-Iteration 5+ candidates (see `question_5.md`)
+Iteration 5 — **done**
+- [x] Android sync folder (all-files access + picker; hourly periodic sync for debug)
+- [x] Placeholder-metadata repair (reader saves base on stored record; repair on
+      open + during sync; root cause: browse quick-open placeholders)
+- [x] Mouse click-through shield for browse popup menus (Android + mouse)
+- [x] Randomized AO3 request jitter everywhere + 429 abort in bulk downloads
+- [x] Hide required-tags inner text; dark mode nav links lose boxed backgrounds
+- [x] App color themes (7 M3 seeds) + reading themes (sepia/night/gray/paper)
+- [x] History live-updates + reader writes history on close; download errors
+      surfaced with reasons (DownloadResult)
+- [x] Artifact builds manual-only; releases only on user request; v1.3.0+4
+
+Iteration 6+ candidates (see `question_6.md`)
 - [ ] Widget tests for the remaining tabs
 - [ ] RadioGroup migration in `advanced_search.dart` (deprecated Radio API)
-- [ ] Mobile folder sync (SAF) if desktop sync-folder proves out
+- [ ] Info-level lint cleanup (~40 style lints)
 
 ---
 
