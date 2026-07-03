@@ -4,7 +4,6 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
-import 'storage_service.dart';
 
 /// Outcome of a single work download: a file [path] on success, otherwise a
 /// human-readable [error].
@@ -173,31 +172,6 @@ class DownloadService {
     }
   }
   
-  /// Download multiple works with throttling
-  /// Returns a map of workId -> success/failure
-  static Future<Map<String, bool>> downloadWorks(
-    List<String> workIds, {
-    Duration throttleDelay = const Duration(milliseconds: 1000),
-    void Function(int completed, int total)? onProgress,
-  }) async {
-    final results = <String, bool>{};
-
-    for (int i = 0; i < workIds.length; i++) {
-      final workId = workIds[i];
-      final result = await downloadWork(workId);
-      results[workId] = result.isSuccess;
-
-      onProgress?.call(i + 1, workIds.length);
-
-      // Throttle to avoid overwhelming AO3 (base delay + random jitter)
-      if (i < workIds.length - 1) {
-        await Future.delayed(jitteredDelay(throttleDelay.inMilliseconds));
-      }
-    }
-
-    return results;
-  }
-  
   /// Delete a downloaded work
   static Future<bool> deleteDownload(String workId) async {
     try {
@@ -226,26 +200,6 @@ class DownloadService {
       return null;
     } catch (e) {
       debugPrint('[DownloadService] Error reading download for work $workId: $e');
-      return null;
-    }
-  }
-  
-  /// Get download file info (size, date)
-  static Future<Map<String, dynamic>?> getDownloadInfo(String workId) async {
-    try {
-      final path = await getWorkDownloadPath(workId);
-      final file = File(path);
-      if (await file.exists()) {
-        final stat = await file.stat();
-        return {
-          'path': path,
-          'size': stat.size,
-          'modified': stat.modified,
-        };
-      }
-      return null;
-    } catch (e) {
-      debugPrint('[DownloadService] Error getting download info for work $workId: $e');
       return null;
     }
   }
@@ -293,57 +247,4 @@ class DownloadService {
     }
   }
   
-  /// Update work's download status in storage
-  static Future<void> updateWorkDownloadStatus(
-    StorageService storage,
-    String workId,
-    bool isDownloaded,
-  ) async {
-    final work = storage.getWork(workId);
-    if (work != null) {
-      final updatedWork = work.copyWith(
-        isDownloaded: isDownloaded,
-      );
-      await storage.saveWork(updatedWork);
-    }
-  }
-}
-
-/// Model for tracking download progress
-class DownloadProgress {
-  final String workId;
-  final String workTitle;
-  final DownloadStatus status;
-  final String? errorMessage;
-  final DateTime startedAt;
-  final DateTime? completedAt;
-  
-  DownloadProgress({
-    required this.workId,
-    required this.workTitle,
-    required this.status,
-    this.errorMessage,
-    required this.startedAt,
-    this.completedAt,
-  });
-  
-  DownloadProgress copyWith({
-    DownloadStatus? status,
-    String? errorMessage,
-    DateTime? completedAt,
-  }) => DownloadProgress(
-    workId: workId,
-    workTitle: workTitle,
-    status: status ?? this.status,
-    errorMessage: errorMessage ?? this.errorMessage,
-    startedAt: startedAt,
-    completedAt: completedAt ?? this.completedAt,
-  );
-}
-
-enum DownloadStatus {
-  pending,
-  downloading,
-  completed,
-  failed,
 }

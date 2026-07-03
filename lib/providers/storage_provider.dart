@@ -23,20 +23,6 @@ final workListProvider = StreamProvider<List<Work>>((ref) async* {
   }
 });
 
-final workActionsProvider = Provider<WorkActions>((ref) {
-  final storage = ref.watch(storageProvider);
-  return WorkActions(storage);
-});
-
-class WorkActions {
-  final StorageService storage;
-  WorkActions(this.storage);
-
-  Future<void> addOrUpdateWork(Work work) async => storage.saveWork(work);
-  Future<void> deleteWork(String id) async => storage.deleteWork(id);
-  Future<void> clearLibrary() async => storage.clearAll();
-}
-
 final categoriesProvider = StreamProvider<List<String>>((ref) async* {
   final storage = ref.watch(storageProvider);
   yield await storage.getCategories();

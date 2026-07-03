@@ -18,12 +18,6 @@ final workUpdatesProvider = StreamProvider<List<WorkUpdate>>((ref) async* {
   }
 });
 
-/// Provider for unread count
-final unreadCountProvider = FutureProvider<int>((ref) async {
-  final updates = await ref.watch(workUpdatesProvider.future);
-  return updates.where((u) => !u.isRead).length;
-});
-
 class UpdatesTab extends ConsumerStatefulWidget {
   const UpdatesTab({super.key});
 
