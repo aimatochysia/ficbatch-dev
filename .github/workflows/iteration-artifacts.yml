@@ -4,6 +4,9 @@ name: Iteration artifacts
 # iteration can be tested on real devices without cutting a release.
 # Manual-only by user request: trigger from the Actions tab (or ask Claude)
 # when you want testable builds — pushes no longer build automatically.
+# Each job bumps the version locally (patch and build number +1, same rule as
+# flutter_build.yml) so the binaries install over the last release; only a
+# fully verified release commits a bump back to the repo.
 on:
   workflow_dispatch:
     inputs:
@@ -28,6 +31,13 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
+      - name: Bump version locally (not committed)
+        run: |
+          CURRENT=$(grep -m1 '^version:' pubspec.yaml | awk '{print $2}')
+          BASE=${CURRENT%+*}; BUILD=${CURRENT#*+}
+          NEW="${BASE%.*}.$(( ${BASE##*.} + 1 ))+$((BUILD + 1))"
+          sed -i "s/^version: .*/version: $NEW/" pubspec.yaml
+          grep '^version:' pubspec.yaml
       - run: flutter build apk --release
       - uses: actions/upload-artifact@v4
         with:
@@ -46,6 +56,15 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
+      - name: Bump version locally (not committed)
+        shell: pwsh
+        run: |
+          $cur = ((Select-String -Path pubspec.yaml -Pattern '^version:\s*(.+)$').Matches[0].Groups[1].Value).Trim()
+          $base, $build = $cur -split '\+'
+          $p = $base -split '\.'
+          $new = "$($p[0]).$($p[1]).$([int]$p[2] + 1)+$([int]$build + 1)"
+          (Get-Content pubspec.yaml) -replace '^version: .*', "version: $new" | Set-Content pubspec.yaml
+          Select-String -Path pubspec.yaml -Pattern '^version:'
       - run: flutter build windows --release
       - name: Zip Windows build
         shell: pwsh
@@ -71,6 +90,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libglib2.0-dev liblzma-dev libsecret-1-dev
       - run: flutter pub get
+      - name: Bump version locally (not committed)
+        run: |
+          CURRENT=$(grep -m1 '^version:' pubspec.yaml | awk '{print $2}')
+          BASE=${CURRENT%+*}; BUILD=${CURRENT#*+}
+          NEW="${BASE%.*}.$(( ${BASE##*.} + 1 ))+$((BUILD + 1))"
+          sed -i "s/^version: .*/version: $NEW/" pubspec.yaml
+          grep '^version:' pubspec.yaml
       - run: flutter build linux --release
       - name: Zip Linux build
         run: |
@@ -96,6 +122,13 @@ jobs:
           cache: true
       - run: flutter config --enable-macos-desktop
       - run: flutter pub get
+      - name: Bump version locally (not committed)
+        run: |
+          CURRENT=$(grep -m1 '^version:' pubspec.yaml | awk '{print $2}')
+          BASE=${CURRENT%+*}; BUILD=${CURRENT#*+}
+          NEW="${BASE%.*}.$(( ${BASE##*.} + 1 ))+$((BUILD + 1))"
+          perl -pi -e "s/^version: .*/version: $NEW/" pubspec.yaml
+          grep '^version:' pubspec.yaml
       - run: flutter build macos --release
       - name: Zip macOS app
         run: |
@@ -120,6 +153,13 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
+      - name: Bump version locally (not committed)
+        run: |
+          CURRENT=$(grep -m1 '^version:' pubspec.yaml | awk '{print $2}')
+          BASE=${CURRENT%+*}; BUILD=${CURRENT#*+}
+          NEW="${BASE%.*}.$(( ${BASE##*.} + 1 ))+$((BUILD + 1))"
+          perl -pi -e "s/^version: .*/version: $NEW/" pubspec.yaml
+          grep '^version:' pubspec.yaml
       # flutter build ios generates the Podfile and runs pod install itself.
       - run: flutter build ios --release --no-codesign
       - name: Zip iOS .app

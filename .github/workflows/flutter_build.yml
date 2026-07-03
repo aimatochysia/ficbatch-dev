@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Release tag (e.g. v0.7.1); 'auto' uses a date tag"
+        description: "Release tag (e.g. v0.7.2); 'auto' derives it from the bumped pubspec version"
         type: string
         default: "auto"
 
@@ -17,6 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.set-tag.outputs.tag }}
+      version: ${{ steps.set-tag.outputs.version }}
     continue-on-error: true
 
     steps:
@@ -44,14 +45,40 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Generate release tag
+      # Every run bumps the version (patch and Android build number +1) so
+      # each release is installable over the previous one. The bump is only
+      # committed back to the branch by the release job, and only after every
+      # platform artifact has been verified to exist and be non-empty.
+      - name: Bump version and set release tag
         id: set-tag
         run: |
+          CURRENT=$(grep -m1 '^version:' pubspec.yaml | awk '{print $2}')
+          BASE=${CURRENT%+*}
+          BUILD=${CURRENT#*+}
+          MAJOR=$(echo "$BASE" | cut -d. -f1)
+          MINOR=$(echo "$BASE" | cut -d. -f2)
+          PATCH=$(echo "$BASE" | cut -d. -f3)
           TAG="${{ inputs.release_tag }}"
-          if [ -z "$TAG" ] || [ "$TAG" = "auto" ]; then
-            TAG="v$(date +'%Y%m%d-%H%M')"
+          if [ -n "$TAG" ] && [ "$TAG" != "auto" ]; then
+            if echo "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+              # An explicit vX.Y.Z tag drives the app version.
+              NEW_BASE="${TAG#v}"
+            else
+              NEW_BASE="$MAJOR.$MINOR.$((PATCH + 1))"
+            fi
+          else
+            NEW_BASE="$MAJOR.$MINOR.$((PATCH + 1))"
+            TAG="v$NEW_BASE"
           fi
+          VERSION="$NEW_BASE+$((BUILD + 1))"
+          echo "Version: $CURRENT -> $VERSION  Tag: $TAG"
           echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Apply version to this build
+        run: |
+          sed -i "s/^version: .*/version: ${{ steps.set-tag.outputs.version }}/" pubspec.yaml
+          grep '^version:' pubspec.yaml
 
       - name: Decode Android keystore
         run: |
@@ -125,9 +152,10 @@ jobs:
           mkdir -p dist/deb/ficbatch/usr/local/bin
           cp -r build/linux/x64/release/bundle/* dist/deb/ficbatch/usr/local/bin/
           mkdir -p dist/deb/ficbatch/DEBIAN
+          DEB_VERSION="${{ steps.set-tag.outputs.version }}"
           cat <<EOF > dist/deb/ficbatch/DEBIAN/control
           Package: ficbatch
-          Version: 1.0
+          Version: ${DEB_VERSION%+*}
           Section: utils
           Priority: optional
           Architecture: amd64
@@ -167,6 +195,15 @@ jobs:
 
       - name: Install dependencies
         run: flutter pub get
+
+      - name: Apply release version
+        shell: pwsh
+        run: |
+          $v = '${{ needs.build-ubuntu.outputs.version }}'
+          if (-not [string]::IsNullOrWhiteSpace($v)) {
+            (Get-Content pubspec.yaml) -replace '^version: .*', "version: $v" | Set-Content pubspec.yaml
+            Select-String -Path pubspec.yaml -Pattern '^version:'
+          }
 
       - name: Build Windows
         run: flutter build windows --release
@@ -254,6 +291,14 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Apply release version
+        run: |
+          V="${{ needs.build-ubuntu.outputs.version }}"
+          if [ -n "$V" ]; then
+            perl -pi -e "s/^version: .*/version: $V/" pubspec.yaml
+            grep '^version:' pubspec.yaml
+          fi
+
       - name: Verify macOS support
         run: |
           if [ ! -d "macos" ]; then
@@ -300,6 +345,13 @@ jobs:
           pod repo update || true
       - name: Flutter pub get
         run: flutter pub get
+      - name: Apply release version
+        run: |
+          V="${{ needs.build-ubuntu.outputs.version }}"
+          if [ -n "$V" ]; then
+            perl -pi -e "s/^version: .*/version: $V/" pubspec.yaml
+            grep '^version:' pubspec.yaml
+          fi
       # flutter build ios generates the Podfile and runs pod install itself.
       - name: Build iOS (no codesign)
         run: flutter build ios --release --no-codesign
@@ -335,13 +387,33 @@ jobs:
         with:
           path: release-dist
 
-      - name: Determine build results
-        id: status
+      # Job status alone lied to us before (a job can "succeed" with no
+      # artifact) — check every platform's file exists and is non-empty.
+      - name: Verify platform artifacts
+        id: verify
         run: |
-          echo "linux_status=${{ needs.build-ubuntu.result }}" >> $GITHUB_OUTPUT
-          echo "windows_status=${{ needs.build-windows.result }}" >> $GITHUB_OUTPUT
-          echo "macos_status=${{ needs.build-macos.result }}" >> $GITHUB_OUTPUT
-          echo "ios_status=${{ needs.build-ios.result }}" >> $GITHUB_OUTPUT
+          ANY_OK=false
+          ALL_OK=true
+          check() {
+            local FOUND
+            FOUND=$(find release-dist -type f -name "$2" -size +0c | head -n 1)
+            if [ -n "$FOUND" ]; then
+              echo "$1_ok=true" >> "$GITHUB_OUTPUT"
+              echo "✅ $2 ($(stat -c%s "$FOUND") bytes)"
+              ANY_OK=true
+            else
+              echo "$1_ok=false" >> "$GITHUB_OUTPUT"
+              echo "❌ $2 missing or empty"
+              ALL_OK=false
+            fi
+          }
+          check android ficbatch.apk
+          check linux ficbatch-linux.deb
+          check windows ficbatch-windows.exe
+          check macos ficbatch-macos.zip
+          check ios ficbatch-ios-app.zip
+          echo "any_ok=$ANY_OK" >> "$GITHUB_OUTPUT"
+          echo "all_ok=$ALL_OK" >> "$GITHUB_OUTPUT"
 
       - name: Set release metadata
         id: release-info
@@ -358,63 +430,51 @@ jobs:
               echo "---"
               echo ""
             fi
-            echo "Automated multi-platform build results:"
+            echo "App version: \`${{ needs.build-ubuntu.outputs.version }}\`"
             echo ""
-            if [ "${{ steps.status.outputs.linux_status }}" = "success" ]; then
-              echo "- ✅ Linux build succeeded"
-            else
-              echo "- ❌ Linux build failed"
-            fi
-
-            if [ "${{ steps.status.outputs.windows_status }}" = "success" ]; then
-              echo "- ✅ Windows build succeeded"
-            else
-              echo "- ❌ Windows build failed"
-            fi
-
-            if [ "${{ steps.status.outputs.macos_status }}" = "success" ]; then
-              echo "- ✅ macOS build succeeded"
-            else
-              echo "- ❌ macOS build failed"
-            fi
-
-            if [ "${{ steps.status.outputs.ios_status }}" = "success" ]; then
-              echo "- ✅ iOS build succeeded (unsigned .app)"
-            else
-              echo "- ❌ iOS build failed"
-            fi
-
+            echo "Build results (each artifact verified to exist and be non-empty):"
             echo ""
-            echo "Included installers/artifacts:"
-            echo "- Android: ficbatch.apk"
-            echo "- Linux: ficbatch-linux.deb"
-            echo "- Windows: ficbatch-windows.exe"
-            echo "- macOS: ficbatch-macos.zip (unzip and drag FicBatch.app to Applications)"
-            echo "- iOS (unsigned): ficbatch-ios-app.zip"
+            if [ "${{ steps.verify.outputs.android_ok }}" = "true" ]; then
+              echo "- ✅ Android: ficbatch.apk"
+            else
+              echo "- ❌ Android: ficbatch.apk missing"
+            fi
+            if [ "${{ steps.verify.outputs.linux_ok }}" = "true" ]; then
+              echo "- ✅ Linux: ficbatch-linux.deb"
+            else
+              echo "- ❌ Linux: ficbatch-linux.deb missing"
+            fi
+            if [ "${{ steps.verify.outputs.windows_ok }}" = "true" ]; then
+              echo "- ✅ Windows: ficbatch-windows.exe"
+            else
+              echo "- ❌ Windows: ficbatch-windows.exe missing"
+            fi
+            if [ "${{ steps.verify.outputs.macos_ok }}" = "true" ]; then
+              echo "- ✅ macOS: ficbatch-macos.zip (unzip and drag FicBatch.app to Applications)"
+            else
+              echo "- ❌ macOS: ficbatch-macos.zip missing"
+            fi
+            if [ "${{ steps.verify.outputs.ios_ok }}" = "true" ]; then
+              echo "- ✅ iOS (unsigned): ficbatch-ios-app.zip"
+            else
+              echo "- ❌ iOS (unsigned): ficbatch-ios-app.zip missing"
+            fi
+            echo ""
+            if [ "${{ steps.verify.outputs.all_ok }}" = "true" ]; then
+              echo "All platform artifacts verified — version committed back to \`${{ github.ref_name }}\`."
+            else
+              echo "⚠️ Not all artifacts made it — the version bump was NOT committed; a re-run will reuse version \`${{ needs.build-ubuntu.outputs.version }}\` and tag \`$TAG\`."
+            fi
             echo "EOF"
           } >> $GITHUB_ENV
 
-      - name: Check if all builds failed
-        id: check-fail
+      - name: Stop if no artifacts were produced
+        if: steps.verify.outputs.any_ok != 'true'
         run: |
-          LINUX="${{ steps.status.outputs.linux_status }}"
-          WINDOWS="${{ steps.status.outputs.windows_status }}"
-          MACOS="${{ steps.status.outputs.macos_status }}"
-          IOS="${{ steps.status.outputs.ios_status }}"
-          if [ "$LINUX" != "success" ] && [ "$WINDOWS" != "success" ] && [ "$MACOS" != "success" ] && [ "$IOS" != "success" ]; then
-            echo "ALL_FAILED=true" >> $GITHUB_ENV
-          else
-            echo "ALL_FAILED=false" >> $GITHUB_ENV
-          fi
-
-      - name: Stop if all builds failed
-        if: env.ALL_FAILED == 'true'
-        run: |
-          echo "❌ All platform builds failed. Skipping release."
+          echo "❌ No platform produced a usable artifact. Skipping release."
           exit 1
 
       - name: Create GitHub Release
-        if: env.ALL_FAILED == 'false'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.TAG }}
@@ -426,3 +486,24 @@ jobs:
           files: |
             release-dist/**/*
           overwrite_files: true
+
+      # Only a fully verified release moves the version forward in git, so
+      # the repo version always reflects the last complete release and a
+      # partially failed run can simply be re-run with the same version/tag.
+      - name: Commit released version back to the source branch
+        if: steps.verify.outputs.all_ok == 'true'
+        run: |
+          VERSION="${{ needs.build-ubuntu.outputs.version }}"
+          BRANCH="${{ github.ref_name }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin "$BRANCH"
+          git checkout -B "$BRANCH" "origin/$BRANCH"
+          sed -i "s/^version: .*/version: $VERSION/" pubspec.yaml
+          if git diff --quiet; then
+            echo "Version $VERSION is already committed."
+          else
+            git add pubspec.yaml
+            git commit -m "Bump version to $VERSION (released as ${{ needs.build-ubuntu.outputs.tag }})"
+            git push origin "$BRANCH"
+          fi

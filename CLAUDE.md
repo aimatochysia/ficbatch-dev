@@ -93,6 +93,15 @@ flutter build windows --release        # Windows
   `flutter_build.yml` (full release; takes a `release_tag` input) and
   `build-flutter-android.yml` are manual `workflow_dispatch` **by user
   request — never trigger builds/releases without being asked**.
+- **Versioning is automated per build run**: every `flutter_build.yml` /
+  `iteration-artifacts.yml` run bumps `pubspec.yaml` locally (patch and build
+  number +1, e.g. `0.7.1+5` → `0.7.2+6`); a `release_tag` of `auto` becomes
+  `v<bumped version>`, an explicit `vX.Y.Z` tag drives the version instead.
+  The release job verifies **all five** platform files exist and are
+  non-empty, and only then commits the bump back to the source branch — so
+  the repo version always equals the last complete release, and a partial
+  release can be re-run reusing the same version/tag. Don't hand-bump the
+  version for a release anymore.
 - `retag.yml` is a maintenance utility that points a tag at a commit by
   round-tripping through the releases API (GITHUB_TOKEN can't touch tag refs
   whose target changes workflow files vs main). Trigger it by editing
