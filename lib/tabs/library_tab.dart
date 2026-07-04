@@ -492,6 +492,7 @@ class _LibraryTabState extends ConsumerState<LibraryTab> {
     final storage = ref.read(storageProvider);
     final allCats = List<String>.from(await storage.getCategories());
     final selected = Set<String>.from(await storage.getCategoriesForWork(workId));
+    if (!context.mounted) return;
     final newCatCtrl = TextEditingController();
 
     await showDialog(
@@ -629,6 +630,7 @@ class _LibraryTabState extends ConsumerState<LibraryTab> {
       }
       return;
     }
+    if (!context.mounted) return;
 
     await showDialog(
       context: context,
@@ -742,6 +744,7 @@ class _LibraryTabState extends ConsumerState<LibraryTab> {
       }
       return;
     }
+    if (!context.mounted) return;
 
     await showDialog(
       context: context,

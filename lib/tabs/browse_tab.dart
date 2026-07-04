@@ -201,7 +201,8 @@ class _BrowseTabState extends ConsumerState<BrowseTab> {
                     title: workToOpen.title,
                     author: workToOpen.author,
                   );
-                  
+                  if (!mounted) return NavigationDecision.prevent;
+
                   // Open reader for all works
                   final returnUrl = await Navigator.push<String>(
                     context,
@@ -667,6 +668,7 @@ a.tag, .tag { background-color: #2b3134 !important; color: #e8e6e3 !important; }
 
       // Get existing categories for this work (if already saved)
       final existingCategories = await storage.getCategoriesForWork(work.id);
+      if (!mounted) return;
       final selected = Set<String>.from(existingCategories);
       final newCats = await showDialog<Set<String>>(
         context: context,
@@ -803,7 +805,7 @@ a.tag, .tag { background-color: #2b3134 !important; color: #e8e6e3 !important; }
               ),
               onLoadSavedSearch: () async {
                 final saved = await storage.getSavedSearches();
-                if (!mounted) return;
+                if (!context.mounted) return;
                 await showSavedSearchDialog(
                   context: context,
                   saved: saved,
@@ -964,7 +966,8 @@ a.tag, .tag { background-color: #2b3134 !important; color: #e8e6e3 !important; }
         // If goBack fails, navigate to home
         await _winController!.loadUrl('https://archiveofourown.org/');
       }
-      
+      if (!mounted) return;
+
       // Open reader for the work
       final returnUrl = await Navigator.push<String>(
         context,
@@ -1057,6 +1060,7 @@ a.tag, .tag { background-color: #2b3134 !important; color: #e8e6e3 !important; }
 
       // Get existing categories for this work (if already saved)
       final existingCategories = await storage.getCategoriesForWork(workId);
+      if (!mounted) return;
       final selected = Set<String>.from(existingCategories);
       final chosen = await showDialog<Set<String>>(
         context: context,

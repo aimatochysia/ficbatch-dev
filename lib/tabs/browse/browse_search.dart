@@ -35,6 +35,7 @@ Future<void> openAdvancedSearch({
   required void Function(String) onUrlChange,
 }) async {
   final lastFilters = await storage.getAdvancedFilters();
+  if (!context.mounted) return;
   final result = await Navigator.push<Map<String, dynamic>>(
     context,
     MaterialPageRoute(
@@ -65,6 +66,7 @@ Future<void> saveCurrentSearch({
   required void Function(String) setCurrentUrl,
 }) async {
   final live = await getCurrentUrl();
+  if (!context.mounted) return;
   final current = (live ?? currentUrl).trim();
   setCurrentUrl(current);
   if (current.isEmpty) return;
@@ -140,7 +142,7 @@ Future<void> showSavedSearchDialog({
                       icon: const Icon(Icons.delete),
                       onPressed: () async {
                         await storage.deleteSavedSearch(item['name']);
-                        Navigator.pop(ctx);
+                        if (ctx.mounted) Navigator.pop(ctx);
                         final refreshed = await storage.getSavedSearches();
                         if (!context.mounted) return;
                         await showSavedSearchDialog(
