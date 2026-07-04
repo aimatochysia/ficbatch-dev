@@ -248,6 +248,22 @@ jobs:
           Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\ficbatch.exe"; Tasks: desktopicon
           [Tasks]
           Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Additional icons:"
+          [Code]
+          // The default dir-browse dialog can't create folders; swap it for
+          // BrowseForFolder with the New Folder button enabled.
+          procedure DirBrowseClick(Sender: TObject);
+          var
+            Dir: String;
+          begin
+            Dir := WizardForm.DirEdit.Text;
+            if BrowseForFolder('Select the installation folder:', Dir, True) then
+              WizardForm.DirEdit.Text := Dir;
+          end;
+
+          procedure InitializeWizard();
+          begin
+            WizardForm.DirBrowseButton.OnClick := @DirBrowseClick;
+          end;
           "@
           $issPath = Join-Path $env:RUNNER_TEMP "installer.iss"
           Set-Content -Path $issPath -Value $iss -Encoding UTF8
