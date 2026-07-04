@@ -12,6 +12,7 @@ import '../providers/storage_provider.dart';
 import '../services/sync_service.dart';
 import '../services/library_export_service.dart';
 import '../services/download_service.dart';
+import '../services/lan_sync_service.dart' show LanPeer;
 import 'onboarding_screen.dart';
 import 'reader_screen.dart' show ReaderScreen;
 
@@ -720,6 +721,24 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
       );
       if (mounted) setState(() {});
     }
+  }
+
+  String _formatAgo(DateTime t) {
+    final d = DateTime.now().difference(t);
+    if (d.inSeconds < 60) return '${d.inSeconds}s ago';
+    if (d.inMinutes < 60) return '${d.inMinutes}m ago';
+    return '${d.inHours}h ago';
+  }
+
+  /// Sync with one specific discovered device right now.
+  Future<void> _syncWithLanPeer(LanPeer peer) async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Syncing with ${peer.name}…')),
+    );
+    await ref
+        .read(lanSyncProvider)
+        .syncWithPeer(peer.address, peer.port, name: peer.name);
+    if (mounted) setState(() {});
   }
 
   /// Manual LAN sync: re-announce immediately so nearby peers handshake now.
@@ -1582,6 +1601,44 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
                               : 'Never synced',
                         ),
                         onTap: _lanSyncNow,
+                      ),
+                      // Live list of devices announcing on this network —
+                      // tap one to sync with it immediately.
+                      ValueListenableBuilder<List<LanPeer>>(
+                        valueListenable: lanSync.peers,
+                        builder: (context, peerList, _) {
+                          if (peerList.isEmpty) {
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 72, vertical: 4),
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  'No devices found yet — open FicBatch on '
+                                  'another device on this Wi-Fi.',
+                                  style: TextStyle(
+                                      fontSize: 12, color: Colors.grey),
+                                ),
+                              ),
+                            );
+                          }
+                          return Column(
+                            children: [
+                              for (final peer in peerList)
+                                ListTile(
+                                  dense: true,
+                                  leading: const Icon(Icons.devices),
+                                  title: Text(peer.name),
+                                  subtitle: Text(
+                                    'Seen ${_formatAgo(peer.lastSeen)}'
+                                    '${peer.lastSynced != null ? ' · synced ${_formatAgo(peer.lastSynced!)}' : ' · not synced yet'}',
+                                  ),
+                                  trailing: const Icon(Icons.sync, size: 18),
+                                  onTap: () => _syncWithLanPeer(peer),
+                                ),
+                            ],
+                          );
+                        },
                       ),
                     ],
                   ],

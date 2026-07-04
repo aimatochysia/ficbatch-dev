@@ -7,6 +7,7 @@ import 'package:ficbatch/models/reading_progress.dart';
 import 'package:ficbatch/services/storage_service.dart';
 import 'package:ficbatch/services/lan_sync_service.dart';
 import 'package:ficbatch/services/library_export_service.dart';
+import 'package:ficbatch/services/download_service.dart';
 
 /// Smoke tests for the LAN sync TCP handshake against a real on-disk Hive
 /// store: a fake peer connects to the service's server socket, pushes an
@@ -27,6 +28,9 @@ void main() {
     await Hive.openBox(StorageService.settingsBoxName);
     storage = StorageService();
     await storage.settingsBox.put('lan_sync_enabled', true);
+    // Point downloads at the temp dir so the file phase works without
+    // path_provider (desktop honors the custom dir).
+    DownloadService.configureDirectory('${tempDir.path}/downloads');
     service = LanSyncService(storage);
     await service.start();
   });
@@ -91,5 +95,49 @@ void main() {
     expect(storage.getWork('lan-2'), isNull);
 
     await storage.settingsBox.put('lan_sync_code', '');
+  });
+
+  test('file phase trades downloaded works both ways', () async {
+    // Server owns a download the client lacks…
+    final serverFile =
+        File(await DownloadService.getWorkDownloadPath('111'));
+    await serverFile.writeAsString('<html>server copy</html>');
+
+    final socket =
+        await Socket.connect(InternetAddress.loopbackIPv4, service.serverPort!);
+    final lines = socket
+        .cast<List<int>>()
+        .transform(utf8.decoder)
+        .transform(const LineSplitter())
+        .asBroadcastStream();
+
+    // …and the client announces it owns work 222.
+    final export = await LibraryExportService(storage).exportToJson();
+    socket.add(utf8.encode('${jsonEncode({
+          'code': '',
+          'export': export,
+          'have': ['222'],
+        })}\n'));
+    await socket.flush();
+
+    final reply = jsonDecode(await lines.first) as Map<String, dynamic>;
+    expect(List<String>.from(reply['have'] as List), contains('111'));
+    expect(List<String>.from(reply['want'] as List), equals(['222']));
+
+    // Client sends the file the server wants and asks for 111.
+    socket.add(utf8.encode('${jsonEncode({
+          'files': {'222': '<html>client copy</html>'},
+          'want': ['111'],
+        })}\n'));
+    await socket.flush();
+
+    final frame2 = jsonDecode(await lines.first) as Map<String, dynamic>;
+    socket.destroy();
+    expect(frame2['files']['111'], '<html>server copy</html>');
+
+    // The server persisted the client's file to its downloads dir.
+    final received =
+        File(await DownloadService.getWorkDownloadPath('222'));
+    expect(await received.readAsString(), '<html>client copy</html>');
   });
 }
