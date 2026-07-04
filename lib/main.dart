@@ -13,6 +13,8 @@ import 'services/sync_service.dart';
 import 'services/download_service.dart';
 import 'services/sync_folder_service.dart';
 import 'services/lan_sync_service.dart';
+import 'services/update_service.dart';
+import 'widgets/update_prompt.dart';
 
 import 'tabs/home_tab.dart';
 import 'tabs/library_tab.dart';
@@ -138,6 +140,26 @@ class _RootGateState extends ConsumerState<RootGate> {
     } catch (e) {
       debugPrint('Onboarding flag unavailable, skipping onboarding: $e');
       _showOnboarding = false;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkForUpdates());
+  }
+
+  /// Once per launch: look for a newer GitHub release (unless turned off in
+  /// Settings) and offer it. Never blocks or breaks startup.
+  Future<void> _checkForUpdates() async {
+    try {
+      final storage = ref.read(storageProvider);
+      if (storage.settingsBox
+              .get(UpdateService.enabledKey, defaultValue: true) !=
+          true) {
+        return;
+      }
+      final info = await UpdateService.checkForUpdate();
+      if (info != null && mounted) {
+        await showUpdatePrompt(context, info);
+      }
+    } catch (e) {
+      debugPrint('Update check failed: $e');
     }
   }
 

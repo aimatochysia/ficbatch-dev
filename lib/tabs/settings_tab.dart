@@ -13,6 +13,9 @@ import '../services/sync_service.dart';
 import '../services/library_export_service.dart';
 import '../services/download_service.dart';
 import '../services/lan_sync_service.dart' show LanPeer;
+import '../services/update_service.dart';
+import '../widgets/update_prompt.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'onboarding_screen.dart';
 import 'reader_screen.dart' show ReaderScreen;
 
@@ -275,6 +278,35 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
   bool _isSyncing = false;
   bool _isExporting = false;
   bool _isImporting = false;
+  bool _isCheckingUpdate = false;
+  String? _appVersion;
+
+  @override
+  void initState() {
+    super.initState();
+    PackageInfo.fromPlatform().then((info) {
+      if (mounted) setState(() => _appVersion = info.version);
+    }).catchError((e) {
+      debugPrint('Package info unavailable: $e');
+    });
+  }
+
+  /// Manual update check with feedback either way.
+  Future<void> _checkForUpdatesNow() async {
+    setState(() => _isCheckingUpdate = true);
+    final info = await UpdateService.checkForUpdate();
+    if (!mounted) return;
+    setState(() => _isCheckingUpdate = false);
+    if (info == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text("You're on the latest version (or the check "
+                'could not reach GitHub)')),
+      );
+      return;
+    }
+    await showUpdatePrompt(context, info);
+  }
 
   Future<void> _performManualSync() async {
     setState(() => _isSyncing = true);
@@ -1702,6 +1734,59 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
                 'Default font size, line height, font family, reading theme',
               ),
               onTap: _showReaderSettingsDialog,
+            ),
+
+            const Divider(),
+
+            // Updates Section
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                'Updates',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey,
+                ),
+              ),
+            ),
+            Builder(
+              builder: (context) {
+                final storage = ref.read(storageProvider);
+                final autoCheck = storage.settingsBox
+                        .get(UpdateService.enabledKey, defaultValue: true) ==
+                    true;
+                return Column(
+                  children: [
+                    SwitchListTile(
+                      secondary: const Icon(Icons.system_update),
+                      title: const Text('Check for updates on launch'),
+                      subtitle: const Text(
+                          'Looks for a newer release and asks before updating'),
+                      value: autoCheck,
+                      onChanged: (v) async {
+                        await storage.settingsBox
+                            .put(UpdateService.enabledKey, v);
+                        if (mounted) setState(() {});
+                      },
+                    ),
+                    ListTile(
+                      leading: _isCheckingUpdate
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.update),
+                      title: const Text('Check for Updates Now'),
+                      subtitle: Text(_appVersion == null
+                          ? 'Current version unknown'
+                          : 'Current version: v$_appVersion'),
+                      onTap: _isCheckingUpdate ? null : _checkForUpdatesNow,
+                    ),
+                  ],
+                );
+              },
             ),
 
             const Divider(),
