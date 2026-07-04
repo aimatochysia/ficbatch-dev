@@ -44,6 +44,7 @@ lib/
     sync_service.dart            # update detection, notifications, workmanager dispatcher
     sync_folder_service.dart     # cross-device sync via a watched folder
     lan_sync_service.dart        # auto-sync between devices on one LAN (UDP+TCP)
+    update_service.dart          # GitHub latest-release check (in-app updates)
   tabs/
     home_tab.dart                # dashboard: streak/check-in/usage timer + batch import
     library_tab.dart             # categories as tabs, grid/list, per-work context menu
@@ -123,7 +124,8 @@ flutter build windows --release        # Windows
   `sync_network_preference`, `last_sync_time`, `auto_download_categories`,
   `auto_download_global`, `download_dir`, `download_throttle_ms`,
   `default_category`, `app_usage_seconds`, `check_in_streak`, `last_check_in`,
-  `sync_folder_*`, `lan_sync_*` (enabled/code/device_name/last_run/last_peer).
+  `sync_folder_*`, `lan_sync_*` (enabled/code/device_name/last_run/last_peer),
+  `update_check_enabled`.
 - Prefer `debugPrint` over `print`.
 - Match the surrounding Material 3 widget style; most lists are
   `ListView`/`GridView` with `Card` items.
@@ -356,8 +358,22 @@ Iteration 7 — **done**
       fully clean
 - [x] Release v0.7.3 (auto-versioned 0.7.3+7)
 
-Iteration 8 candidates (see `question_8.md`)
-- [ ] User's v0.7.3 testing feedback (LAN sync two-device, bookmarks)
+Iteration 8 — **done**
+- [x] Red bookmark dot in the left margin + jump-to-bookmark FAB (shared
+      anchor-matching JS helper)
+- [x] LAN sync v2: live nearby-device list in Settings (tap to sync) +
+      downloaded-work file transfer in the handshake (25/pass, numeric-id
+      validated, back-compatible with v0.7.3 peers); persistent per-socket
+      line reader
+- [x] In-app update check on all platforms (`UpdateService` +
+      `showUpdatePrompt`; launch check toggleable via `update_check_enabled`,
+      manual check in Settings; package_info_plus)
+- [x] Windows installer: New Folder button (Inno `BrowseForFolder` override)
+- [x] Release v0.7.5 (explicit tag; auto-versioned 0.7.5+8)
+
+Iteration 9 candidates (see `question_9.md`)
+- [ ] User's v0.7.5 testing feedback (in-app update flow, LAN file transfer,
+      bookmark dot)
 
 ---
 

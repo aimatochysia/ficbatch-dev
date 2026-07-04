@@ -1,31 +1,32 @@
-# FicBatch v0.7.3
+# FicBatch v0.7.5
 
-Iteration 7: sync without wires, bookmarks that survive the online/offline
-switch, and a fully clean codebase.
+Iteration 8: updates from inside the app, LAN sync you can see and that
+carries your downloads, and a bookmark you can actually find again.
 
 ## ✨ New
 
-- **LAN Sync** — turn it on (Settings → LAN Sync) on two devices on the same
-  Wi-Fi and your library, reading progress and history merge automatically
-  within seconds. No server, no internet, no shared folder needed. Set the
-  same optional pairing code on both devices to keep other FicBatch users on
-  the network out. iOS asks for local-network permission the first time.
-- **Bookmark button in the reader** — tap the bookmark button to save the
-  exact text at mid-screen as your position, instantly. The automatic
-  tracking uses the same text anchor in the background, and restoring
-  scrolls that text back to mid-screen — so your spot now lines up between
-  the online and the downloaded copy of a work.
-- **5 new app colors** — Sakura (pink), Mint (green), Indigo, Coral and
-  Olive join the seven existing Material 3 themes.
-- **Exit warning on mobile** — pressing back at the main screen asks before
-  closing the app.
+- **In-app updates** — FicBatch now checks GitHub for a newer release on
+  launch (turn it off in Settings → Updates) and asks before updating;
+  "Check for Updates Now" is there too. It hands you the right installer
+  for your platform, and installing over the previous version keeps your
+  library and settings.
+- **LAN Sync shows nearby devices** — Settings → LAN Sync lists every
+  FicBatch it can see on your Wi-Fi (name, last seen, last synced). Tap a
+  device to sync with it immediately.
+- **LAN Sync moves your downloads too** — devices now trade downloaded
+  works they're missing (25 per pass), so your other device reads offline
+  without re-downloading from AO3.
+- **The bookmark is visible now** — a small red dot sits in the left margin
+  at your saved spot (after restore and after bookmarking), and a new
+  arrow-down button jumps straight back to it.
+- **Windows installer** — the folder picker finally has a New Folder button.
 
-## 🧰 Under the hood
+## 📌 Android update note
 
-- The last 12 style lints are gone — `flutter analyze` is completely clean
-  for the first time.
-- New socket-level tests for the LAN sync handshake (merge + pairing-code
-  rejection) against a real Hive store; 30 tests total.
+If updating still asks you to uninstall: that's the one-time signature
+switch from the old unsigned builds. Uninstall once, install v0.7.5, and
+every update after this installs in place with your data kept — including
+through the new in-app updater.
 
-**Note for Android:** notifications need Android 13+; folder sync asks for
-"All files access". iOS build requires iOS 14+.
+**Notes:** notifications need Android 13+; folder sync asks for "All files
+access"; iOS build requires iOS 14+.
