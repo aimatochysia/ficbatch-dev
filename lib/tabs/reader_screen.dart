@@ -1044,32 +1044,17 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       bool positionRestored = false;
       
       if (progress.paragraphAnchor != null && progress.paragraphAnchor!.isNotEmpty) {
-        // Try to find paragraph by text content (works across font sizes and online/offline)
-        final escapedText = progress.paragraphAnchor!
-            .replaceAll('\\', '\\\\')
-            .replaceAll("'", "\\'")
-            .replaceAll('"', '\\"')
-            .replaceAll('\n', ' ')
-            .replaceAll('\r', '');
-        
+        // Find the paragraph by (whitespace-normalized) text content — works
+        // across font sizes and online/offline — scroll it back to
+        // mid-screen and drop the red bookmark dot next to it.
         final js = '''
           (function() {
-            // Normalize whitespace on both sides so online and offline
-            // renderings of the same words compare equal.
-            const searchText = '$escapedText'.replace(/\\s+/g, ' ').trim();
-            const needle = searchText.substring(0, 120);
-            const paragraphs = document.querySelectorAll('p');
-
-            for (let p of paragraphs) {
-              const text = p.textContent.replace(/\\s+/g, ' ').trim();
-              if (!text) continue;
-              if (text.startsWith(needle) ||
-                  (needle.length > 40 && text.includes(needle)) ||
-                  searchText.startsWith(text.substring(0, Math.min(text.length, 200)))) {
-                // block: center mirrors the mid-screen capture point.
-                p.scrollIntoView({ behavior: 'auto', block: 'center' });
-                return true;
-              }
+$_findAnchorFnJs
+            const p = findAnchorParagraph('${_escapeForJs(progress.paragraphAnchor!)}');
+            if (p) {
+              p.scrollIntoView({ behavior: 'auto', block: 'center' });
+              markBookmark(p);
+              return true;
             }
             return false;
           })();
@@ -1308,6 +1293,114 @@ $_anchorFnJs
           }
 ''';
 
+  /// JS helpers shared by restore, the bookmark marker and the jump button:
+  /// find the paragraph matching a saved anchor (same whitespace-normalized
+  /// rules everywhere) and place/move the little red dot in the left margin
+  /// that marks the bookmarked spot.
+  static const String _findAnchorFnJs = '''
+          function findAnchorParagraph(rawText) {
+            const searchText = rawText.replace(/\\s+/g, ' ').trim();
+            const needle = searchText.substring(0, 120);
+            const paragraphs = document.querySelectorAll('p');
+            for (let p of paragraphs) {
+              const text = p.textContent.replace(/\\s+/g, ' ').trim();
+              if (!text) continue;
+              if (text.startsWith(needle) ||
+                  (needle.length > 40 && text.includes(needle)) ||
+                  searchText.startsWith(text.substring(0, Math.min(text.length, 200)))) {
+                return p;
+              }
+            }
+            return null;
+          }
+          function markBookmark(p) {
+            if (!p) return;
+            let dot = document.getElementById('__fb_bookmark_dot');
+            if (!dot) {
+              dot = document.createElement('div');
+              dot.id = '__fb_bookmark_dot';
+              dot.style.cssText = 'position:absolute;left:4px;width:10px;' +
+                'height:10px;border-radius:50%;background:#e53935;' +
+                'z-index:2147483647;box-shadow:0 0 4px rgba(229,57,53,0.8);' +
+                'pointer-events:none;';
+              document.body.appendChild(dot);
+            }
+            const top = p.getBoundingClientRect().top + window.pageYOffset;
+            dot.style.top = (top + 6) + 'px';
+          }
+''';
+
+  static String _escapeForJs(String s) => s
+      .replaceAll('\\', '\\\\')
+      .replaceAll("'", "\\'")
+      .replaceAll('"', '\\"')
+      .replaceAll('\n', ' ')
+      .replaceAll('\r', '');
+
+  Future<dynamic> _runJs(String js, {bool returningResult = false}) async {
+    if (_isWindows && _winController != null) {
+      return _winController!.executeScript(js);
+    } else if (_controller != null) {
+      return returningResult
+          ? _controller!.runJavaScriptReturningResult(js)
+          : _controller!.runJavaScript(js);
+    }
+    return null;
+  }
+
+  /// Show/move the red bookmark dot next to the anchored paragraph.
+  Future<void> _showBookmarkMark(String anchorText) async {
+    final js = '''
+      (function() {
+$_findAnchorFnJs
+        markBookmark(findAnchorParagraph('${_escapeForJs(anchorText)}'));
+      })();
+    ''';
+    try {
+      await _runJs(js);
+    } catch (e) {
+      debugPrint('Bookmark mark failed: $e');
+    }
+  }
+
+  /// Scroll back to the saved bookmark (last saved reading position) and
+  /// re-mark it.
+  Future<void> _jumpToBookmark() async {
+    final storage = ref.read(storageProvider);
+    final anchor = (storage.getWork(widget.work.id) ?? widget.work)
+        .readingProgress
+        .paragraphAnchor;
+    if (anchor == null || anchor.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No bookmark saved yet')),
+      );
+      return;
+    }
+    final js = '''
+      (function() {
+$_findAnchorFnJs
+        const p = findAnchorParagraph('${_escapeForJs(anchor)}');
+        if (p) {
+          p.scrollIntoView({ behavior: 'auto', block: 'center' });
+          markBookmark(p);
+          return true;
+        }
+        return false;
+      })();
+    ''';
+    try {
+      final result = await _runJs(js, returningResult: true);
+      if (result != null && result.toString().contains('false') && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Bookmarked text not found in this view')),
+        );
+      }
+    } catch (e) {
+      debugPrint('Jump to bookmark failed: $e');
+    }
+  }
+
   /// Captures the paragraph at mid-screen right now and saves it as the
   /// reading position immediately — the manual "bookmark this spot" action.
   /// Uses the same anchor the background tracking writes, so History and
@@ -1343,6 +1436,9 @@ $_anchorFnJs
         _hasUnsavedChanges = true;
       });
       await _saveProgress();
+      if (anchor != null && anchor.isNotEmpty) {
+        await _showBookmarkMark(anchor);
+      }
       if (!mounted) return;
       final snippet = (anchor == null || anchor.isEmpty)
           ? 'current position'
@@ -1716,6 +1812,17 @@ $_anchorFnJs
                   heroTag: 'bookmark',
                   onPressed: _bookmarkCurrentPosition,
                   child: const Icon(Icons.bookmark_add),
+                ),
+              ),
+            // Jump back to the saved bookmark (red dot)
+            if (_isContentReady)
+              Positioned(
+                top: 120,
+                right: 8,
+                child: FloatingActionButton.small(
+                  heroTag: 'jump-bookmark',
+                  onPressed: _jumpToBookmark,
+                  child: const Icon(Icons.arrow_downward),
                 ),
               ),
             // Offline indicator
