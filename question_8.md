@@ -35,11 +35,11 @@ The two headline features need two-device testing:
       merge core needs real-network testing before layering more on).**
 - [ ] B. "Add device by IP" fallback for networks that block UDP broadcast
       (the hook `syncWithPeer` already exists).
-- [ ] C. Show discovered devices live in Settings (peer list with last-seen).
-- [ ] D. Sync downloaded chapter files too, not just metadata/progress
+- [x] C. Show discovered devices live in Settings (peer list with last-seen).
+- [x] D. Sync downloaded chapter files too, not just metadata/progress
       (bigger transfers; needs progress UI).
 
-→ ANSWER:
+→ ANSWER: whats the fastest one for user to use? then use that
 
 ---
 
@@ -49,14 +49,16 @@ The two headline features need two-device testing:
       (Recommended).**
 - [ ] B. Multiple named bookmarks per work (list + jump), not just the
       single reading position.
-- [ ] C. Show a subtle flash/highlight on the restored paragraph so you can
+- [x] C. Show a subtle flash/highlight on the restored paragraph so you can
       see where you left off.
 - [ ] D. Ideas of yours (describe below).
 
-→ ANSWER:
+→ ANSWER: the current one doesnt show at all or missing the mark
 
 ---
 
 ## D. Anything else?
 
 → ANSWER:
+on installer for windows please add create new folder aside from just seelcting folder to make installation easier
+going to the future, can you make every platform can be updated from inside the app? like this would be done automatically where the app auto get latest update (if not turned off) then ask user to update or not? since currently despite the version bump the app on my android still needs to be unisntall and installed again (deleting data in the process) but for all platforms
