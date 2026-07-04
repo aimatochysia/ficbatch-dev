@@ -15,7 +15,12 @@ enum AppColorTheme {
   rose('Rose', Color(0xFFC2185B)),
   amber('Amber', Color(0xFFF57C00)),
   crimson('Crimson', Color(0xFF990000)), // AO3-ish red
-  mono('Mono', Color(0xFF607D8B));
+  mono('Mono', Color(0xFF607D8B)),
+  sakura('Sakura', Color(0xFFF06292)), // soft pink
+  mint('Mint', Color(0xFF00BFA5)), // fresh teal-green
+  indigo('Indigo', Color(0xFF3F51B5)),
+  coral('Coral', Color(0xFFE64A19)), // warm red-orange
+  olive('Olive', Color(0xFF827717)); // muted yellow-green
 
   final String label;
   final Color seed;

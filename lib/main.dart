@@ -1,5 +1,6 @@
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show SystemNavigator;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
@@ -153,12 +154,35 @@ class MainScaffold extends ConsumerWidget {
     SettingsTab(),
   ];
 
+  Future<void> _confirmExit(BuildContext context) async {
+    final leave = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Exit FicBatch?'),
+        content: const Text('Your reading progress is saved automatically.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Exit'),
+          ),
+        ],
+      ),
+    );
+    if (leave == true) {
+      SystemNavigator.pop();
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final index = ref.watch(navigationProvider);
     final notifier = ref.read(navigationProvider.notifier);
 
-    return Scaffold(
+    final scaffold = Scaffold(
       body: IndexedStack(index: index, children: _tabs),
       bottomNavigationBar: NavigationBar(
         selectedIndex: index,
@@ -175,6 +199,18 @@ class MainScaffold extends ConsumerWidget {
           NavigationDestination(icon: Icon(Icons.settings), label: 'Settings'),
         ],
       ),
+    );
+
+    // Desktop windows have a close button; only the mobile hardware/gesture
+    // back needs an exit guard.
+    if (!Platform.isAndroid && !Platform.isIOS) return scaffold;
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        _confirmExit(context);
+      },
+      child: scaffold,
     );
   }
 }
