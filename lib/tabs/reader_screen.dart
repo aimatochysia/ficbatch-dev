@@ -1054,14 +1054,20 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         
         final js = '''
           (function() {
-            const searchText = '$escapedText';
+            // Normalize whitespace on both sides so online and offline
+            // renderings of the same words compare equal.
+            const searchText = '$escapedText'.replace(/\\s+/g, ' ').trim();
+            const needle = searchText.substring(0, 120);
             const paragraphs = document.querySelectorAll('p');
-            
+
             for (let p of paragraphs) {
-              const text = p.textContent.trim();
-              // Check if paragraph starts with our saved text (first 200 chars)
-              if (text.startsWith(searchText) || searchText.startsWith(text.substring(0, Math.min(text.length, 200)))) {
-                p.scrollIntoView({ behavior: 'auto', block: 'start' });
+              const text = p.textContent.replace(/\\s+/g, ' ').trim();
+              if (!text) continue;
+              if (text.startsWith(needle) ||
+                  (needle.length > 40 && text.includes(needle)) ||
+                  searchText.startsWith(text.substring(0, Math.min(text.length, 200)))) {
+                // block: center mirrors the mid-screen capture point.
+                p.scrollIntoView({ behavior: 'auto', block: 'center' });
                 return true;
               }
             }
@@ -1119,37 +1125,15 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       });
     } else {
       // For Android/iOS, use JavaScript channel with paragraph anchor detection
-      const js = '''
+      final js = '''
         (function() {
           let lastPosition = 0;
-          
-          function getFirstVisibleParagraph() {
-            const paragraphs = document.querySelectorAll('p');
-            const viewportTop = window.pageYOffset;
-            const viewportBottom = viewportTop + window.innerHeight;
-            
-            for (let p of paragraphs) {
-              const rect = p.getBoundingClientRect();
-              const absTop = rect.top + window.pageYOffset;
-              
-              // Check if paragraph is in viewport
-              if (absTop >= viewportTop && absTop <= viewportBottom) {
-                let text = p.textContent.trim();
-                // Get first 200 chars max
-                if (text.length > 200) {
-                  text = text.substring(0, 200);
-                }
-                return text;
-              }
-            }
-            return null;
-          }
-          
+$_anchorFnJs
           setInterval(() => {
             const currentPosition = window.pageYOffset;
             if (currentPosition !== lastPosition) {
               lastPosition = currentPosition;
-              const paragraphAnchor = getFirstVisibleParagraph();
+              const paragraphAnchor = getAnchorParagraph();
               ReaderChannel.postMessage(JSON.stringify({
                 type: 'scroll',
                 position: currentPosition,
@@ -1168,35 +1152,14 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     if (_winController == null) return;
     
     try {
-      // Windows: Get scroll position and first visible paragraph
+      // Windows: Get scroll position and the mid-screen anchor paragraph
       final js = '''
         (function() {
-          function getFirstVisibleParagraph() {
-            const paragraphs = document.querySelectorAll('p');
-            const viewportTop = window.pageYOffset;
-            const viewportBottom = viewportTop + window.innerHeight;
-            
-            for (let p of paragraphs) {
-              const rect = p.getBoundingClientRect();
-              const absTop = rect.top + window.pageYOffset;
-              
-              // Check if paragraph is in viewport
-              if (absTop >= viewportTop && absTop <= viewportBottom) {
-                let text = p.textContent.trim();
-                // Get first 200 chars max
-                if (text.length > 200) {
-                  text = text.substring(0, 200);
-                }
-                return text;
-              }
-            }
-            return null;
-          }
-          
+$_anchorFnJs
           return JSON.stringify({
             position: window.pageYOffset,
             maxScroll: document.documentElement.scrollHeight - window.innerHeight,
-            paragraphAnchor: getFirstVisibleParagraph()
+            paragraphAnchor: getAnchorParagraph()
           });
         })();
       ''';
@@ -1318,6 +1281,81 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       }
     } catch (e) {
       debugPrint('Error updating chapter index: $e');
+    }
+  }
+
+  /// JS helper injected wherever a position anchor is captured: returns the
+  /// (whitespace-normalized, 200-char) text of the paragraph crossing the
+  /// viewport midline, so the online and offline renderings of the same words
+  /// resolve to the same anchor. Falls back to the first visible paragraph.
+  static const String _anchorFnJs = '''
+          function getAnchorParagraph() {
+            const paragraphs = document.querySelectorAll('p');
+            const mid = window.innerHeight / 2;
+            let firstVisible = null;
+            for (let p of paragraphs) {
+              const rect = p.getBoundingClientRect();
+              const text = p.textContent.replace(/\\s+/g, ' ').trim();
+              if (!text) continue;
+              if (rect.top <= mid && rect.bottom >= mid) {
+                return text.substring(0, 200);
+              }
+              if (!firstVisible && rect.top >= 0 && rect.top <= window.innerHeight) {
+                firstVisible = text.substring(0, 200);
+              }
+            }
+            return firstVisible;
+          }
+''';
+
+  /// Captures the paragraph at mid-screen right now and saves it as the
+  /// reading position immediately — the manual "bookmark this spot" action.
+  /// Uses the same anchor the background tracking writes, so History and
+  /// cross-device sync pick it up unchanged.
+  Future<void> _bookmarkCurrentPosition() async {
+    final js = '''
+      (function() {
+$_anchorFnJs
+        return JSON.stringify({
+          position: window.pageYOffset,
+          paragraphAnchor: getAnchorParagraph()
+        });
+      })();
+    ''';
+    try {
+      dynamic result;
+      if (_isWindows && _winController != null) {
+        result = await _winController!.executeScript(js);
+      } else if (_controller != null) {
+        result = await _controller!.runJavaScriptReturningResult(js);
+      }
+      if (result == null) return;
+      dynamic data = result is String ? jsonDecode(result) : result;
+      // Android returns JS strings JSON-quoted — decode the second layer.
+      if (data is String) data = jsonDecode(data);
+      final position = (data['position'] ?? 0).toDouble();
+      final anchor = data['paragraphAnchor']?.toString();
+      setState(() {
+        _currentScrollPosition = position;
+        if (anchor != null && anchor.isNotEmpty) {
+          _currentParagraphAnchor = anchor;
+        }
+        _hasUnsavedChanges = true;
+      });
+      await _saveProgress();
+      if (!mounted) return;
+      final snippet = (anchor == null || anchor.isEmpty)
+          ? 'current position'
+          : '"${anchor.length > 60 ? '${anchor.substring(0, 60)}…' : anchor}"';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Bookmarked $snippet')),
+      );
+    } catch (e) {
+      debugPrint('Bookmark failed: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not bookmark this position')),
+      );
     }
   }
 
@@ -1669,6 +1707,17 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                 child: const Icon(Icons.settings),
               ),
             ),
+            // Bookmark: save the text at mid-screen as the reading position
+            if (_isContentReady)
+              Positioned(
+                top: 64,
+                right: 8,
+                child: FloatingActionButton.small(
+                  heroTag: 'bookmark',
+                  onPressed: _bookmarkCurrentPosition,
+                  child: const Icon(Icons.bookmark_add),
+                ),
+              ),
             // Offline indicator
             if (_isUsingOfflineContent && _isContentReady)
               Positioned(
