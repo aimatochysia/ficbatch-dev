@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/storage_service.dart';
 import '../services/sync_folder_service.dart';
+import '../services/lan_sync_service.dart';
 import '../models/work.dart';
 
 final storageProvider = Provider<StorageService>((ref) {
@@ -10,6 +11,11 @@ final storageProvider = Provider<StorageService>((ref) {
 /// Overridden in main.dart with the app-lifetime SyncFolderService.
 final syncFolderProvider = Provider<SyncFolderService>((ref) {
   throw UnimplementedError('SyncFolderService not initialized');
+});
+
+/// Overridden in main.dart with the app-lifetime LanSyncService.
+final lanSyncProvider = Provider<LanSyncService>((ref) {
+  throw UnimplementedError('LanSyncService not initialized');
 });
 
 final workListProvider = StreamProvider<List<Work>>((ref) async* {

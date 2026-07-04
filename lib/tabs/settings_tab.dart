@@ -673,6 +673,69 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
     }
   }
 
+  /// Edit the LAN sync device name and pairing code.
+  Future<void> _configureLanSync() async {
+    final lanSync = ref.read(lanSyncProvider);
+    final nameController = TextEditingController(text: lanSync.deviceName);
+    final codeController = TextEditingController(text: lanSync.pairingCode);
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('LAN Sync Settings'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: 'Device name',
+                helperText: 'Shown to other devices on the network',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: codeController,
+              decoration: const InputDecoration(
+                labelText: 'Pairing code (optional)',
+                helperText: 'Devices only sync when their codes match',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Save')),
+        ],
+      ),
+    );
+    if (saved == true) {
+      await lanSync.configure(
+        enabled: lanSync.enabled,
+        deviceName: nameController.text,
+        code: codeController.text,
+      );
+      if (mounted) setState(() {});
+    }
+  }
+
+  /// Manual LAN sync: re-announce immediately so nearby peers handshake now.
+  Future<void> _lanSyncNow() async {
+    await ref.read(lanSyncProvider).syncNow();
+    if (mounted) {
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Announced to the network — devices on this Wi-Fi '
+              'with the same pairing code merge within a few seconds'),
+        ),
+      );
+    }
+  }
+
   /// Clear the reading history list (works and downloads are untouched).
   Future<void> _clearReadingHistory() async {
     final confirmed = await showDialog<bool>(
@@ -1456,6 +1519,69 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
                               : 'Never synced',
                         ),
                         onTap: _isFolderSyncing ? null : _syncFolderNow,
+                      ),
+                    ],
+                  ],
+                );
+              },
+            ),
+
+            const Divider(),
+
+            // LAN Sync Section (automatic sync between devices on one network)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                'LAN Sync (Same Network)',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey,
+                ),
+              ),
+            ),
+            Builder(
+              builder: (context) {
+                final lanSync = ref.read(lanSyncProvider);
+                return Column(
+                  children: [
+                    SwitchListTile(
+                      secondary: const Icon(Icons.wifi_tethering),
+                      title: const Text('Sync over local network'),
+                      subtitle: Text(
+                        lanSync.enabled
+                            ? 'Announcing as "${lanSync.deviceName}" — devices '
+                                'with the same pairing code merge automatically'
+                            : 'Find your other devices on this Wi-Fi and merge '
+                                'library, progress & history automatically',
+                      ),
+                      value: lanSync.enabled,
+                      onChanged: (v) async {
+                        await lanSync.configure(enabled: v);
+                        if (mounted) setState(() {});
+                      },
+                    ),
+                    if (lanSync.enabled) ...[
+                      ListTile(
+                        leading: const Icon(Icons.badge),
+                        title: const Text('Device Name & Pairing Code'),
+                        subtitle: Text(
+                          lanSync.pairingCode.isEmpty
+                              ? '${lanSync.deviceName} · no pairing code'
+                              : '${lanSync.deviceName} · code set',
+                        ),
+                        onTap: _configureLanSync,
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.sync),
+                        title: const Text('Sync Now'),
+                        subtitle: Text(
+                          lanSync.lastRun != null
+                              ? 'Last sync: ${_formatDateTime(lanSync.lastRun!)}'
+                                  '${lanSync.lastPeer != null ? ' with ${lanSync.lastPeer}' : ''}'
+                              : 'Never synced',
+                        ),
+                        onTap: _lanSyncNow,
                       ),
                     ],
                   ],
