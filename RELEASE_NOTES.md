@@ -1,8 +1,14 @@
-# FicBatch v0.7.1
+# FicBatch v0.7.2
 
-Follow-up to the overhaul release: cross-device sync on Android, fixes for
-everything found in manual testing, personalization themes, and a leaner
-codebase.
+Same app as v0.7.1 plus release-pipeline upgrades: the Android APK is now
+**properly signed** (future releases update in place — this first signed one
+needs an uninstall→reinstall over older test builds), versions bump
+automatically every build run, and a release only counts once every
+platform's installer is verified to exist.
+
+Everything below shipped in the v0.7.1 cycle: cross-device sync on Android,
+fixes for everything found in manual testing, personalization themes, and a
+leaner codebase.
 
 ## ✨ New
 
