@@ -43,6 +43,7 @@ lib/
     library_export_service.dart  # JSON export/import v2 (works+history), merge logic
     sync_service.dart            # update detection, notifications, workmanager dispatcher
     sync_folder_service.dart     # cross-device sync via a watched folder
+    lan_sync_service.dart        # auto-sync between devices on one LAN (UDP+TCP)
   tabs/
     home_tab.dart                # dashboard: streak/check-in/usage timer + batch import
     library_tab.dart             # categories as tabs, grid/list, per-work context menu
@@ -121,7 +122,8 @@ flutter build windows --release        # Windows
   `library_view_mode`, `auto_sync_*`, `sync_interval`,
   `sync_network_preference`, `last_sync_time`, `auto_download_categories`,
   `auto_download_global`, `download_dir`, `download_throttle_ms`,
-  `default_category`, `app_usage_seconds`, `check_in_streak`, `last_check_in`.
+  `default_category`, `app_usage_seconds`, `check_in_streak`, `last_check_in`,
+  `sync_folder_*`, `lan_sync_*` (enabled/code/device_name/last_run/last_peer).
 - Prefer `debugPrint` over `print`.
 - Match the surrounding Material 3 widget style; most lists are
   `ListView`/`GridView` with `Card` items.
@@ -340,9 +342,22 @@ Iteration 6 — **done**
       writes via tester.runAsync)
 - [x] Release v0.7.1 (tag input added to flutter_build.yml; version 0.7.1+5)
 
-Iteration 7 candidates (see `question_7.md`)
-- [ ] Manual `use_build_context_synchronously` cleanup (12 infos)
-- [ ] User's v0.7.1 testing feedback
+Iteration 7 — **done**
+- [x] Sync-folder verdict: works — hourly cadence kept
+- [x] LAN auto-sync v1 (`LanSyncService`: UDP discovery + TCP export-v2
+      exchange, pairing code, Settings section, iOS local-network plist,
+      socket tests)
+- [x] Text-anchored bookmarks: mid-screen anchor capture (mobile + Windows),
+      manual bookmark FAB with instant save, normalized-text restore
+      centered on screen (online/offline alignment)
+- [x] Back-press exit confirmation on mobile (PopScope at nav root)
+- [x] 5 new app color themes (Sakura/Mint/Indigo/Coral/Olive)
+- [x] Last 12 `use_build_context_synchronously` lints — `flutter analyze`
+      fully clean
+- [x] Release v0.7.3 (auto-versioned 0.7.3+7)
+
+Iteration 8 candidates (see `question_8.md`)
+- [ ] User's v0.7.3 testing feedback (LAN sync two-device, bookmarks)
 
 ---
 

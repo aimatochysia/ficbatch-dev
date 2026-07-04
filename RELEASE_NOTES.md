@@ -1,49 +1,31 @@
-# FicBatch v0.7.2
+# FicBatch v0.7.3
 
-Same app as v0.7.1 plus release-pipeline upgrades: the Android APK is now
-**properly signed** (future releases update in place — this first signed one
-needs an uninstall→reinstall over older test builds), versions bump
-automatically every build run, and a release only counts once every
-platform's installer is verified to exist.
-
-Everything below shipped in the v0.7.1 cycle: cross-device sync on Android,
-fixes for everything found in manual testing, personalization themes, and a
-leaner codebase.
+Iteration 7: sync without wires, bookmarks that survive the online/offline
+switch, and a fully clean codebase.
 
 ## ✨ New
 
-- **Sync folder on Android** — pick a folder (grant "All files access" when
-  prompted) and pair it with Syncthing/Dropbox to sync your library, reading
-  progress and history with your desktop. Plus an hourly background sync
-  while the app is open.
-- **App Color themes** — seven Material 3 personalities (Violet, Ocean,
-  Forest, Rose, Amber, Crimson, Mono) tinting the whole UI in light & dark.
-- **Reading themes** — Sepia joined by Night (true black), Soft gray and
-  Paper, in-reader and as a Settings default.
-
-## 🐛 Fixed (from manual-testing reports)
-
-- **Works saved too fast from browse** no longer end up as "Work #123 /
-  Unknown" — the reader repairs placeholder metadata automatically on open,
-  sync repairs it too, and progress saves can no longer overwrite good
-  metadata with placeholders.
-- **Physical mouse on Android**: clicking a popup menu item no longer
-  clicks through into the website underneath.
-- **History updates instantly** — the History tab live-updates, and closing
-  the reader records your final chapter immediately.
-- **Downloads tell you why they fail** (rate limit with wait time, deleted
-  work, login-restricted work, network/file errors) instead of a generic
-  "failed"; all AO3 requests now pace themselves with randomized delays and
-  bulk downloads stop when AO3 asks to slow down (HTTP 429).
-- The rating/warning symbol squares no longer show their text labels.
-- Dark mode: navigation links lost their boxed dark-grey backgrounds.
+- **LAN Sync** — turn it on (Settings → LAN Sync) on two devices on the same
+  Wi-Fi and your library, reading progress and history merge automatically
+  within seconds. No server, no internet, no shared folder needed. Set the
+  same optional pairing code on both devices to keep other FicBatch users on
+  the network out. iOS asks for local-network permission the first time.
+- **Bookmark button in the reader** — tap the bookmark button to save the
+  exact text at mid-screen as your position, instantly. The automatic
+  tracking uses the same text anchor in the background, and restoring
+  scrolls that text back to mid-screen — so your spot now lines up between
+  the online and the downloaded copy of a work.
+- **5 new app colors** — Sakura (pink), Mint (green), Indigo, Coral and
+  Olive join the seven existing Material 3 themes.
+- **Exit warning on mobile** — pressing back at the main screen asks before
+  closing the app.
 
 ## 🧰 Under the hood
 
-- Dead-code sweep: ~500 lines of unused/superseded code removed.
-- Deprecation cleanup incl. the new RadioGroup API; 22 style lints fixed.
-- New widget tests for the History/Updates/Library tabs on a real Hive store.
-- Builds are manual-only now (no auto-builds on every commit).
+- The last 12 style lints are gone — `flutter analyze` is completely clean
+  for the first time.
+- New socket-level tests for the LAN sync handshake (merge + pairing-code
+  rejection) against a real Hive store; 30 tests total.
 
 **Note for Android:** notifications need Android 13+; folder sync asks for
 "All files access". iOS build requires iOS 14+.
