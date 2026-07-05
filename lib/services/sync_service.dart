@@ -305,8 +305,9 @@ class SyncService {
       if (updates.isNotEmpty) {
         await _saveUpdates(settingsBox, updates);
         await _showUpdateNotification(updates);
+        await _autoDownloadUpdates(worksBox, settingsBox, updates);
       }
-      
+
       // Update last sync time
       await settingsBox.put('last_sync_time', DateTime.now().toIso8601String());
       
@@ -321,6 +322,55 @@ class SyncService {
 
 
   DateTime _dateOnly(DateTime dt) => DateTime(dt.year, dt.month, dt.day);
+
+  /// Fetch fresh copies of updated works automatically: all of them when the
+  /// global auto-download toggle is on, otherwise the ones in auto-download
+  /// categories. Backs off for the rest of the pass on an AO3 rate limit;
+  /// the works stay flagged in Updates either way. Reads raw boxes so it
+  /// also works in the background isolate.
+  Future<void> _autoDownloadUpdates(
+      Box<Work> worksBox, Box settingsBox, List<WorkUpdate> updates) async {
+    try {
+      final autoGlobal =
+          settingsBox.get('auto_download_global', defaultValue: false) == true;
+      final autoCats = List<String>.from(
+          settingsBox.get('auto_download_categories') as List? ?? const []);
+      if (!autoGlobal && autoCats.isEmpty) return;
+
+      final rawMap = settingsBox.get('categories_map');
+      final catMap = <String, List<String>>{
+        if (rawMap is Map)
+          for (final e in rawMap.entries)
+            e.key.toString():
+                (e.value as List? ?? const []).map((v) => v.toString()).toList(),
+      };
+      bool eligible(String workId) {
+        if (autoGlobal) return true;
+        return autoCats.any((cat) => catMap[cat]?.contains(workId) ?? false);
+      }
+
+      for (final update in updates.where((u) => eligible(u.workId))) {
+        final result = await DownloadService.downloadWork(update.workId);
+        if (result.isSuccess) {
+          final work = worksBox.get(update.workId);
+          if (work != null) {
+            await worksBox.put(
+                update.workId,
+                work.copyWith(
+                    isDownloaded: true, downloadedAt: DateTime.now()));
+          }
+          debugPrint('[SyncService] Auto-downloaded ${update.workId}');
+        } else {
+          debugPrint('[SyncService] Auto-download failed for '
+              '${update.workId}: ${result.error}');
+          if ((result.error ?? '').contains('429')) break;
+        }
+        await Future.delayed(DownloadService.jitteredDelay(1200));
+      }
+    } catch (e) {
+      debugPrint('[SyncService] Auto-download pass failed: $e');
+    }
+  }
 
   /// Save updates to storage
   Future<void> _saveUpdates(Box settingsBox, List<WorkUpdate> newUpdates) async {
