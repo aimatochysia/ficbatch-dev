@@ -31,18 +31,68 @@ Worth hitting this round:
 
 ---
 
-## B. What should iteration 9 focus on?
+## B. Ideation — the full catalog (tick any; effort noted)
 
-- [ ] **A. React to your testing findings only — the last two iterations
-      added a lot of moving parts; stabilize before adding more
-      (Recommended).**
-- [ ] B. Library UX round 2 (e.g. tag filtering/search inside a work's tags,
-      reading stats, collections beyond categories).
-- [ ] C. Sync round 3 (conflict handling improvements, sync status
-      indicator in the app bar, more files per LAN pass).
-- [ ] D. Something else (describe below).
+From a fresh pass over the code and views. **Recommended bundle first.**
 
-→ ANSWER:
+### Daily-reading comfort (Recommended as the iteration-9 core)
+- [ ] **B1. "Continue Reading" card on Home** — last-opened work with a
+      progress bar, one tap straight into the reader. The data
+      (`lastUserOpened`, progress) already exists; Home currently only shows
+      stats + batch import. *(low effort, highest daily value)*
+- [ ] **B2. Library filters** — filter chips: downloaded / favorites /
+      has-update / completed + by fandom/rating from stored tags. Tags are
+      stored but there's no way to filter by them. *(medium)*
+- [ ] **B3. Reading status per work** — To read / Reading / Finished /
+      Dropped label (beyond the favorite star), settable from the card menu,
+      filterable, synced like everything else. *(medium)*
+- [ ] **B4. Auto-hide reader buttons** — the reader now stacks 5 floating
+      buttons; hide them while scrolling, reveal on tap, for immersive
+      reading. *(medium)*
+- [ ] **B5. Safety backup before merges** — snapshot the library JSON to a
+      backups folder before any import/replace/reset, keep the last 5.
+      Cheap insurance now that three sync paths write to the store. *(low)*
+
+### Capability unlocks
+- [ ] B6. **Restricted-works support** — downloads/metadata use plain HTTP
+      with no cookies, so login-restricted works always fail. Pass the
+      browse webview's AO3 session cookies to the downloader/parser: log in
+      once in Browse, restricted works then download fine. *(medium-high,
+      biggest capability gap vs. a browser)*
+- [ ] B7. **EPUB export/share** — AO3 serves EPUBs at a known URL; add
+      "Save as EPUB" per work (and bulk) so the library opens in other
+      reader apps. *(low-medium)*
+- [ ] B8. **Series support** — parse AO3 series metadata, group/sort by
+      series in the library. *(medium)*
+- [ ] B9. Auto-download new chapters when an update is detected (for
+      auto-download categories), not just notify. *(low-medium)*
+- [ ] B10. Kudos from the reader (needs B6's cookies). *(medium)*
+
+### Reader extras
+- [ ] B11. Multiple named bookmarks per work (list + jump + delete) on top
+      of the anchor system. *(medium)*
+- [ ] B12. Tap zones / volume keys to page up/down + a chapter progress %
+      indicator. *(medium)*
+- [ ] B13. Read-aloud TTS. *(high)*
+
+### Sync polish
+- [ ] B14. Encrypt LAN sync frames (key derived from the pairing code) —
+      exports currently cross the Wi-Fi in plaintext. *(medium)*
+- [ ] B15. Sync status surface — one Home/app-bar indicator: last folder +
+      LAN sync, tap to sync everything now. *(low)*
+- [ ] B16. Updates badge on the bottom-nav Updates tab. *(low)*
+
+### Engineering
+- [ ] B17. Extract the reader's anchor/marker JS to `assets/js` and test it
+      with jsdom (like the listing injector) — the trickiest code in the app
+      currently has zero direct tests. *(medium, recommended alongside any
+      reader work)*
+- [ ] B18. In-app diagnostics screen (recent log ring buffer, copy button) —
+      makes your bug reports one screenshot instead of guesswork. *(low)*
+- [ ] B19. Refresh onboarding to mention LAN sync/updater (it predates
+      both). *(low)*
+
+→ ANSWER (tick above and/or write):
 
 ---
 
