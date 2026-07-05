@@ -1,32 +1,26 @@
-# FicBatch v0.7.5
+# FicBatch v0.7.6
 
-Iteration 8: updates from inside the app, LAN sync you can see and that
-carries your downloads, and a bookmark you can actually find again.
+Iteration 9: a library you can slice, series that finally exist, updates
+that fetch themselves, and an undo button for your whole library.
 
 ## ✨ New
 
-- **In-app updates** — FicBatch now checks GitHub for a newer release on
-  launch (turn it off in Settings → Updates) and asks before updating;
-  "Check for Updates Now" is there too. It hands you the right installer
-  for your platform, and installing over the previous version keeps your
-  library and settings.
-- **LAN Sync shows nearby devices** — Settings → LAN Sync lists every
-  FicBatch it can see on your Wi-Fi (name, last seen, last synced). Tap a
-  device to sync with it immediately.
-- **LAN Sync moves your downloads too** — devices now trade downloaded
-  works they're missing (25 per pass), so your other device reads offline
-  without re-downloading from AO3.
-- **The bookmark is visible now** — a small red dot sits in the left margin
-  at your saved spot (after restore and after bookmarking), and a new
-  arrow-down button jumps straight back to it.
-- **Windows installer** — the folder picker finally has a New Folder button.
-
-## 📌 Android update note
-
-If updating still asks you to uninstall: that's the one-time signature
-switch from the old unsigned builds. Uninstall once, install v0.7.5, and
-every update after this installs in place with your data kept — including
-through the new in-app updater.
+- **Library filters** — chips under the search bar for Downloaded /
+  Favorites / Has update / Completed / In progress, plus a tag picker
+  (every tag in your library, most-used first, searchable). Filters stack
+  with search and any category tab.
+- **Series** — works now know their series: cards show "Series · Part N",
+  and the new Series sort groups a series together in reading order.
+  Existing works pick their series up on the next sync.
+- **Auto-download updates** — when sync finds new chapters for a work in an
+  auto-download category (or the global toggle is on), the fresh copy
+  downloads itself; you just see it ready in Updates.
+- **Backups** — the app keeps its last five library snapshots, taken
+  automatically before imports, syncs and resets. Settings → Backups lists
+  them with one-tap restore — and restoring backs up the current state
+  first, so even a restore is undoable.
+- **Cleaner reading** — the reader's floating buttons hide while you
+  scroll and fade back when you stop.
 
 **Notes:** notifications need Android 13+; folder sync asks for "All files
 access"; iOS build requires iOS 14+.

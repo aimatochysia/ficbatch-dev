@@ -45,6 +45,7 @@ lib/
     sync_folder_service.dart     # cross-device sync via a watched folder
     lan_sync_service.dart        # auto-sync between devices on one LAN (UDP+TCP)
     update_service.dart          # GitHub latest-release check (in-app updates)
+    backup_service.dart          # rolling library snapshots (5) + restore
   tabs/
     home_tab.dart                # dashboard: streak/check-in/usage timer + batch import
     library_tab.dart             # categories as tabs, grid/list, per-work context menu
@@ -125,7 +126,7 @@ flutter build windows --release        # Windows
   `auto_download_global`, `download_dir`, `download_throttle_ms`,
   `default_category`, `app_usage_seconds`, `check_in_streak`, `last_check_in`,
   `sync_folder_*`, `lan_sync_*` (enabled/code/device_name/last_run/last_peer),
-  `update_check_enabled`.
+  `update_check_enabled`, `last_auto_backup`.
 - Prefer `debugPrint` over `print`.
 - Match the surrounding Material 3 widget style; most lists are
   `ListView`/`GridView` with `Card` items.
@@ -371,9 +372,22 @@ Iteration 8 — **done**
 - [x] Windows installer: New Folder button (Inno `BrowseForFolder` override)
 - [x] Release v0.7.5 (explicit tag; auto-versioned 0.7.5+8)
 
-Iteration 9 candidates (see `question_9.md`)
-- [ ] User's v0.7.5 testing feedback (in-app update flow, LAN file transfer,
-      bookmark dot)
+Iteration 9 — **done** (picked from the ideation catalog in chat)
+- [x] Library filter chips (Downloaded/Favorites/Has update/Completed/
+      In progress + searchable tag picker; AND-combined with search)
+- [x] Series support end-to-end (parser incl. the package:html compound-
+      selector workaround, Work Hive fields 21–23, batch import + sync
+      fill-in, card display + Series sort; parser & round-trip tests)
+- [x] Auto-download on detected updates (global toggle or auto-download
+      categories; 429 backs off; works in the background isolate)
+- [x] Rolling backups (`BackupService`, 5 snapshots, auto before imports/
+      resets — merge-imports throttled 6h; Settings list + restore)
+- [x] Reader floating buttons auto-hide while scrolling
+- Held per user: Home continue-reading card, reading statuses, EPUB export,
+  restricted-works cookies
+
+Iteration 10 candidates (see `question_10.md`)
+- [ ] User's testing feedback (filters, series, backups, auto-download)
 
 ---
 
