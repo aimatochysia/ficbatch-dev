@@ -46,6 +46,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   String? _currentParagraphAnchor; // First visible paragraph text for position matching
   Timer? _autosaveTimer;
   bool _autosaveEnabled = true;
+  // Floating controls hide while the page scrolls and fade back on idle.
+  bool _controlsVisible = true;
+  Timer? _controlsIdleTimer;
   double _fontSize = 16.0;
   double _scrollSpeed = 1.0; // 1.0 is default, 0.5 is slower, 2.0 is faster
   double _lineHeight = 1.5;
@@ -130,10 +133,27 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   @override
   void dispose() {
     _autosaveTimer?.cancel();
+    _controlsIdleTimer?.cancel();
     // Use cached storage since ref is not available after dispose
     _saveProgressSync();
     super.dispose();
   }
+
+  /// Hide the floating controls during scroll; fade them back after idle.
+  void _onUserScrolled() {
+    if (_controlsVisible) setState(() => _controlsVisible = false);
+    _controlsIdleTimer?.cancel();
+    _controlsIdleTimer = Timer(const Duration(milliseconds: 1200), () {
+      if (mounted) setState(() => _controlsVisible = true);
+    });
+  }
+
+  /// Wrapper for floating controls that respect the auto-hide state.
+  Widget _autoHiding(Widget child) => AnimatedOpacity(
+        opacity: _controlsVisible ? 1.0 : 0.0,
+        duration: const Duration(milliseconds: 200),
+        child: IgnorePointer(ignoring: !_controlsVisible, child: child),
+      );
   
   /// Synchronous save for use in dispose - uses cached storage
   void _saveProgressSync() {
@@ -1155,7 +1175,8 @@ $_anchorFnJs
         final position = (data['position'] ?? 0).toDouble();
         final maxScroll = (data['maxScroll'] ?? 1).toDouble();
         final paragraphAnchor = data['paragraphAnchor']?.toString();
-        
+
+        if (position != _currentScrollPosition) _onUserScrolled();
         setState(() {
           // Store actual scroll position (not percentage) for accuracy
           _currentScrollPosition = position;
@@ -1186,6 +1207,7 @@ $_anchorFnJs
         final maxScroll = (data['maxScroll'] ?? 1).toDouble();
         final paragraphAnchor = data['paragraphAnchor']?.toString();
 
+        _onUserScrolled();
         setState(() {
           // Store actual scroll position (not percentage) for accuracy
           _currentScrollPosition = position;
@@ -1775,11 +1797,11 @@ $_anchorFnJs
             Positioned(
               top: 8,
               left: 8,
-              child: FloatingActionButton.small(
+              child: _autoHiding(FloatingActionButton.small(
                 heroTag: 'back',
                 onPressed: () => Navigator.pop(context),
                 child: const Icon(Icons.arrow_back),
-              ),
+              )),
             ),
             // Chapter drawer button (only show if there are chapters and the
             // chapter-jump button is enabled in reader settings)
@@ -1787,43 +1809,43 @@ $_anchorFnJs
               Positioned(
                 top: 64,
                 left: 8,
-                child: FloatingActionButton.small(
+                child: _autoHiding(FloatingActionButton.small(
                   heroTag: 'chapters',
                   onPressed: _showChapterDrawer,
                   child: const Icon(Icons.menu),
-                ),
+                )),
               ),
             // Settings button
             Positioned(
               top: 8,
               right: 8,
-              child: FloatingActionButton.small(
+              child: _autoHiding(FloatingActionButton.small(
                 heroTag: 'settings',
                 onPressed: _showReaderSettings,
                 child: const Icon(Icons.settings),
-              ),
+              )),
             ),
             // Bookmark: save the text at mid-screen as the reading position
             if (_isContentReady)
               Positioned(
                 top: 64,
                 right: 8,
-                child: FloatingActionButton.small(
+                child: _autoHiding(FloatingActionButton.small(
                   heroTag: 'bookmark',
                   onPressed: _bookmarkCurrentPosition,
                   child: const Icon(Icons.bookmark_add),
-                ),
+                )),
               ),
             // Jump back to the saved bookmark (red dot)
             if (_isContentReady)
               Positioned(
                 top: 120,
                 right: 8,
-                child: FloatingActionButton.small(
+                child: _autoHiding(FloatingActionButton.small(
                   heroTag: 'jump-bookmark',
                   onPressed: _jumpToBookmark,
                   child: const Icon(Icons.arrow_downward),
-                ),
+                )),
               ),
             // Offline indicator
             if (_isUsingOfflineContent && _isContentReady)
