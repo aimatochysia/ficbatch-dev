@@ -15,7 +15,8 @@ enum LibrarySort {
   titleAsc('Title (A–Z)'),
   lastRead('Last read'),
   wordCount('Word count'),
-  favoritesFirst('Favorites first');
+  favoritesFirst('Favorites first'),
+  series('Series');
 
   final String label;
   const LibrarySort(this.label);
@@ -127,6 +128,22 @@ class _LibraryTabState extends ConsumerState<LibraryTab> {
             return byDateDesc(a.userAddedDate, b.userAddedDate);
           }
           return a.isFavorite ? -1 : 1;
+        });
+        break;
+      case LibrarySort.series:
+        // Series works grouped alphabetically and ordered by part number;
+        // works without a series follow, by title.
+        result.sort((a, b) {
+          final aName = a.seriesName?.toLowerCase();
+          final bName = b.seriesName?.toLowerCase();
+          if (aName == null && bName == null) {
+            return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+          }
+          if (aName == null) return 1;
+          if (bName == null) return -1;
+          final byName = aName.compareTo(bName);
+          if (byName != 0) return byName;
+          return (a.seriesPosition ?? 0).compareTo(b.seriesPosition ?? 0);
         });
         break;
     }
@@ -1530,6 +1547,22 @@ class _LibraryTabState extends ConsumerState<LibraryTab> {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontSize: isCompact ? 11 : 12),
               ),
+              if (w.seriesName != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    w.seriesPosition != null
+                        ? '${w.seriesName} · Part ${w.seriesPosition}'
+                        : w.seriesName!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: isCompact ? 10 : 11,
+                      fontStyle: FontStyle.italic,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ),
               const SizedBox(height: 4),
               if ((w.summary ?? '').isNotEmpty)
                 Text(
@@ -1612,7 +1645,10 @@ class _LibraryTabState extends ConsumerState<LibraryTab> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'by ${w.author}',
+                      w.seriesName != null
+                          ? 'by ${w.author} · ${w.seriesName}'
+                              '${w.seriesPosition != null ? ' #${w.seriesPosition}' : ''}'
+                          : 'by ${w.author}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: 12, color: Theme.of(context).textTheme.bodySmall?.color),

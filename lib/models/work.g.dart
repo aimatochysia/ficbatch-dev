@@ -38,13 +38,16 @@ class WorkAdapter extends TypeAdapter<Work> {
       isDownloaded: fields[18] == null ? false : fields[18] as bool,
       hasUpdate: fields[19] == null ? false : fields[19] as bool,
       summary: fields[20] as String?,
+      seriesName: fields[21] as String?,
+      seriesId: fields[22] as String?,
+      seriesPosition: (fields[23] as num?)?.toInt(),
     );
   }
 
   @override
   void write(BinaryWriter writer, Work obj) {
     writer
-      ..writeByte(21)
+      ..writeByte(24)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -86,7 +89,13 @@ class WorkAdapter extends TypeAdapter<Work> {
       ..writeByte(19)
       ..write(obj.hasUpdate)
       ..writeByte(20)
-      ..write(obj.summary);
+      ..write(obj.summary)
+      ..writeByte(21)
+      ..write(obj.seriesName)
+      ..writeByte(22)
+      ..write(obj.seriesId)
+      ..writeByte(23)
+      ..write(obj.seriesPosition);
   }
 
   @override

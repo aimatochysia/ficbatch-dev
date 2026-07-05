@@ -13,11 +13,6 @@ class Ao3Service {
       'Mozilla/5.0 (compatible; FicBatch/1.0; +https://github.com/aimatochysia/FicBatch)';
 
   /// Fetch and parse a work's metadata from its AO3 page.
-  ///
-  /// Returns a map with: `title`, `author`, `tags` (`List<String>`), `summary`,
-  /// `wordsCount`, `chaptersCount`, `kudosCount`, `hitsCount`,
-  /// `commentsCount`, `publishedAt` (DateTime?), `updatedAt` (DateTime?) and
-  /// the raw `rawHtml`. Missing fields are returned as `null` (or empty list).
   Future<Map<String, dynamic>> fetchWorkMetadata(String workIdOrUrl) async {
     final url = _normalizeWorkUrl(workIdOrUrl);
     final resp = await httpClient.get(
@@ -27,8 +22,18 @@ class Ao3Service {
     if (resp.statusCode != 200) {
       throw Exception('Failed to fetch work (HTTP ${resp.statusCode})');
     }
+    return parseWorkMetadata(resp.body);
+  }
 
-    final doc = html_parser.parse(resp.body);
+  /// Parse a work page's HTML.
+  ///
+  /// Returns a map with: `title`, `author`, `tags` (`List<String>`), `summary`,
+  /// `wordsCount`, `chaptersCount`, `kudosCount`, `hitsCount`,
+  /// `commentsCount`, `publishedAt` (DateTime?), `updatedAt` (DateTime?),
+  /// `seriesName`/`seriesId`/`seriesPosition` and the raw `rawHtml`. Missing
+  /// fields are returned as `null` (or empty list).
+  Map<String, dynamic> parseWorkMetadata(String body) {
+    final doc = html_parser.parse(body);
 
     final title = (doc.querySelector('h2.title.heading') ??
                 doc.querySelector('h2.title'))
@@ -58,6 +63,29 @@ class Ao3Service {
         ?.text
         .trim();
 
+    // Series: `dd.series span.position` renders "Part N of <a
+    // href="/series/123">Name</a>". A work can belong to several series —
+    // take the first. Queried in two steps: package:html's selector engine
+    // doesn't match descendant selectors with a compound ancestor here.
+    String? seriesName;
+    String? seriesId;
+    int? seriesPosition;
+    final seriesDd = doc.querySelector('dd.series');
+    final position = seriesDd?.querySelector('.position') ?? seriesDd;
+    if (position != null) {
+      for (final link in position.querySelectorAll('a')) {
+        final match =
+            RegExp(r'/series/(\d+)').firstMatch(link.attributes['href'] ?? '');
+        if (match == null) continue;
+        final name = link.text.trim();
+        seriesName = name.isEmpty ? null : name;
+        seriesId = match.group(1);
+        seriesPosition = int.tryParse(
+            RegExp(r'Part\s+(\d+)').firstMatch(position.text)?.group(1) ?? '');
+        break;
+      }
+    }
+
     return {
       'title': title,
       'author': author,
@@ -71,7 +99,10 @@ class Ao3Service {
       'publishedAt': _parseDate(doc.querySelector('dd.published')),
       'updatedAt': _parseDate(doc.querySelector('dd.status')) ??
           _parseDate(doc.querySelector('dd.published')),
-      'rawHtml': resp.body,
+      'seriesName': seriesName,
+      'seriesId': seriesId,
+      'seriesPosition': seriesPosition,
+      'rawHtml': body,
     };
   }
 

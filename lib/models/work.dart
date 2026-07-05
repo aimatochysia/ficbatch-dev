@@ -67,6 +67,15 @@ class Work {
   @HiveField(20)
   final String? summary;
 
+  @HiveField(21)
+  final String? seriesName;
+
+  @HiveField(22)
+  final String? seriesId;
+
+  @HiveField(23)
+  final int? seriesPosition;
+
   Work({
     required this.id,
     required this.title,
@@ -89,6 +98,9 @@ class Work {
     this.isDownloaded = false,
     this.hasUpdate = false,
     this.summary,
+    this.seriesName,
+    this.seriesId,
+    this.seriesPosition,
   }) : readingProgress = readingProgress ?? ReadingProgress.empty();
 
   Map<String, dynamic> toJson() => {
@@ -113,6 +125,9 @@ class Work {
     'hasUpdate': hasUpdate,
     'readingProgress': readingProgress.toJson(),
     'summary': summary,
+    'seriesName': seriesName,
+    'seriesId': seriesId,
+    'seriesPosition': seriesPosition,
   };
 
   factory Work.fromJson(Map<String, dynamic> json) => Work(
@@ -141,6 +156,9 @@ class Work {
           )
         : ReadingProgress.empty(),
     summary: json['summary'],
+    seriesName: json['seriesName'],
+    seriesId: json['seriesId'],
+    seriesPosition: json['seriesPosition'],
   );
 
   Work copyWith({
@@ -163,6 +181,9 @@ class Work {
     String? categoryId,
     ReadingProgress? readingProgress,
     String? summary,
+    String? seriesName,
+    String? seriesId,
+    int? seriesPosition,
   }) {
     return Work(
       id: id,
@@ -186,6 +207,9 @@ class Work {
       isDownloaded: isDownloaded ?? this.isDownloaded,
       hasUpdate: hasUpdate ?? this.hasUpdate,
       summary: summary ?? this.summary,
+      seriesName: seriesName ?? this.seriesName,
+      seriesId: seriesId ?? this.seriesId,
+      seriesPosition: seriesPosition ?? this.seriesPosition,
     );
   }
 

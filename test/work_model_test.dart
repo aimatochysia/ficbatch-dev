@@ -38,6 +38,24 @@ void main() {
       expect(restored.author, 'Unknown');
       expect(restored.tags, isEmpty);
       expect(restored.isFavorite, false);
+      expect(restored.seriesName, isNull);
+    });
+
+    test('round-trips series fields', () {
+      final work = Work(
+        id: '9',
+        title: 'Part Two',
+        author: 'a',
+        tags: const [],
+        userAddedDate: DateTime.now(),
+        seriesName: 'The Long Road Home',
+        seriesId: '123456',
+        seriesPosition: 2,
+      );
+      final restored = Work.fromJson(work.toJson());
+      expect(restored.seriesName, 'The Long Road Home');
+      expect(restored.seriesId, '123456');
+      expect(restored.seriesPosition, 2);
     });
 
     test('copyWith toggles favorite without losing other data', () {

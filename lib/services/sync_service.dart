@@ -276,6 +276,9 @@ class SyncService {
             commentsCount: meta['commentsCount'] as int?,
             summary: meta['summary'] as String?,
             tags: (tags != null && tags.isNotEmpty) ? tags : null,
+            seriesName: meta['seriesName'] as String?,
+            seriesId: meta['seriesId'] as String?,
+            seriesPosition: meta['seriesPosition'] as int?,
             lastSyncDate: DateTime.now(),
           );
 

@@ -186,6 +186,9 @@ class BatchImportService {
         lastSyncDate: DateTime.now(),
         readingProgress: ReadingProgress.empty(),
         summary: meta['summary'] as String?,
+        seriesName: meta['seriesName'] as String?,
+        seriesId: meta['seriesId'] as String?,
+        seriesPosition: meta['seriesPosition'] as int?,
       );
     } catch (e) {
       debugPrint('[BatchImportService] Error fetching work $workId: $e');
