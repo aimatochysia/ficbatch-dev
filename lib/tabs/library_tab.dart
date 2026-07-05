@@ -21,6 +21,18 @@ enum LibrarySort {
   const LibrarySort(this.label);
 }
 
+/// Quick library filters; all active filters must match (AND).
+enum LibraryFilter {
+  downloaded('Downloaded'),
+  favorites('Favorites'),
+  hasUpdate('Has update'),
+  completed('Completed'),
+  inProgress('In progress');
+
+  final String label;
+  const LibraryFilter(this.label);
+}
+
 class LibraryTab extends ConsumerStatefulWidget {
   const LibraryTab({super.key});
 
@@ -33,12 +45,17 @@ class _LibraryTabState extends ConsumerState<LibraryTab> {
   String _downloadProgress = '';
   bool _isSyncing = false;
 
-  // Search / sort / multi-select state.
+  // Search / sort / filter / multi-select state.
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   LibrarySort _sortMode = LibrarySort.recentlyAdded;
+  final Set<LibraryFilter> _activeFilters = <LibraryFilter>{};
+  final Set<String> _tagFilters = <String>{};
   bool _selectionMode = false;
   final Set<String> _selectedIds = <String>{};
+
+  bool get _hasActiveFilters =>
+      _activeFilters.isNotEmpty || _tagFilters.isNotEmpty;
 
   @override
   void dispose() {
@@ -46,20 +63,39 @@ class _LibraryTabState extends ConsumerState<LibraryTab> {
     super.dispose();
   }
 
-  /// Filter the supplied works by the current search query, then sort them by
-  /// the active sort mode. Pure transformation used for whatever category is
-  /// being displayed.
+  /// Filter the supplied works by the active filter chips and the search
+  /// query, then sort them by the active sort mode. Pure transformation used
+  /// for whatever category is being displayed.
   List<Work> _applySearchAndSort(List<Work> works) {
     final query = _searchQuery.trim().toLowerCase();
-    var result = works;
+    var result = List<Work>.from(works);
+
+    if (_hasActiveFilters) {
+      result = result.where((w) {
+        for (final f in _activeFilters) {
+          final ok = switch (f) {
+            LibraryFilter.downloaded => w.isDownloaded,
+            LibraryFilter.favorites => w.isFavorite,
+            LibraryFilter.hasUpdate => w.hasUpdate,
+            LibraryFilter.completed => w.readingProgress.isCompleted,
+            LibraryFilter.inProgress => !w.readingProgress.isCompleted &&
+                w.readingProgress.hasProgress,
+          };
+          if (!ok) return false;
+        }
+        for (final tag in _tagFilters) {
+          if (!w.tags.contains(tag)) return false;
+        }
+        return true;
+      }).toList();
+    }
+
     if (query.isNotEmpty) {
-      result = works.where((w) {
+      result = result.where((w) {
         if (w.title.toLowerCase().contains(query)) return true;
         if (w.author.toLowerCase().contains(query)) return true;
         return w.tags.any((t) => t.toLowerCase().contains(query));
       }).toList();
-    } else {
-      result = List<Work>.from(works);
     }
 
     int byDateDesc(DateTime? a, DateTime? b) {
@@ -95,6 +131,104 @@ class _LibraryTabState extends ConsumerState<LibraryTab> {
         break;
     }
     return result;
+  }
+
+  /// Multi-select tag filter over every tag in the library, most common
+  /// first, with a quick search box.
+  Future<void> _showTagFilterDialog(List<Work> allWorks) async {
+    final counts = <String, int>{};
+    for (final w in allWorks) {
+      for (final t in w.tags) {
+        counts[t] = (counts[t] ?? 0) + 1;
+      }
+    }
+    final allTags = counts.keys.toList()
+      ..sort((a, b) {
+        final byCount = counts[b]!.compareTo(counts[a]!);
+        return byCount != 0 ? byCount : a.compareTo(b);
+      });
+    if (allTags.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No tags in your library yet')),
+      );
+      return;
+    }
+
+    final selected = Set<String>.from(_tagFilters);
+    var filterText = '';
+    final applied = await showDialog<Set<String>>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          final visible = filterText.isEmpty
+              ? allTags
+              : allTags
+                  .where((t) =>
+                      t.toLowerCase().contains(filterText.toLowerCase()))
+                  .toList();
+          return AlertDialog(
+            title: const Text('Filter by tags'),
+            content: SizedBox(
+              width: 420,
+              height: 420,
+              child: Column(
+                children: [
+                  TextField(
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      prefixIcon: Icon(Icons.search, size: 20),
+                      hintText: 'Find a tag',
+                    ),
+                    onChanged: (v) => setDialogState(() => filterText = v),
+                  ),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: visible.length,
+                      itemBuilder: (_, i) {
+                        final tag = visible[i];
+                        return CheckboxListTile(
+                          dense: true,
+                          title: Text(tag),
+                          secondary: Text('${counts[tag]}'),
+                          value: selected.contains(tag),
+                          onChanged: (v) => setDialogState(() {
+                            v == true
+                                ? selected.add(tag)
+                                : selected.remove(tag);
+                          }),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, <String>{}),
+                child: const Text('Clear'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, selected),
+                child: const Text('Apply'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    if (applied != null && mounted) {
+      setState(() {
+        _tagFilters
+          ..clear()
+          ..addAll(applied);
+      });
+    }
   }
 
   void _exitSelection() {
@@ -930,6 +1064,55 @@ class _LibraryTabState extends ConsumerState<LibraryTab> {
                       ],
                     ),
                   ),
+                  // Filter chips (AND-combined with search)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: SizedBox(
+                      height: 36,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        children: [
+                          for (final f in LibraryFilter.values)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: FilterChip(
+                                label: Text(f.label),
+                                visualDensity: VisualDensity.compact,
+                                selected: _activeFilters.contains(f),
+                                onSelected: (on) => setState(() {
+                                  on
+                                      ? _activeFilters.add(f)
+                                      : _activeFilters.remove(f);
+                                }),
+                              ),
+                            ),
+                          Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: FilterChip(
+                              avatar: const Icon(Icons.label, size: 16),
+                              label: Text(_tagFilters.isEmpty
+                                  ? 'Tags…'
+                                  : 'Tags (${_tagFilters.length})'),
+                              visualDensity: VisualDensity.compact,
+                              selected: _tagFilters.isNotEmpty,
+                              onSelected: (_) => _showTagFilterDialog(
+                                  worksAsync.value ?? const []),
+                            ),
+                          ),
+                          if (_hasActiveFilters)
+                            ActionChip(
+                              avatar: const Icon(Icons.clear, size: 16),
+                              label: const Text('Clear'),
+                              visualDensity: VisualDensity.compact,
+                              onPressed: () => setState(() {
+                                _activeFilters.clear();
+                                _tagFilters.clear();
+                              }),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
                   // Download progress indicator
                   if (_isDownloading)
                     Padding(
@@ -1119,7 +1302,9 @@ class _LibraryTabState extends ConsumerState<LibraryTab> {
                 child: Text(
                   _searchQuery.isNotEmpty
                       ? 'No works match "$_searchQuery"'
-                      : 'No works here yet',
+                      : _hasActiveFilters
+                          ? 'No works match the active filters'
+                          : 'No works here yet',
                   style: TextStyle(
                       color: Theme.of(context).textTheme.bodySmall?.color),
                 ),
