@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'storage_service.dart';
+import 'backup_service.dart';
 import '../models/work.dart';
 
 /// Service for exporting and importing library data
@@ -82,6 +83,13 @@ class LibraryExportService {
   Future<ImportResult> importFromJson(String jsonString, {
     ImportMode mode = ImportMode.merge,
   }) async {
+    // Snapshot the current library first so any import — manual, sync
+    // folder, LAN, restore — is undoable. Never blocks the import itself.
+    try {
+      await BackupService(_storage).autoBackupBeforeImport(mode);
+    } catch (e) {
+      debugPrint('[LibraryExportService] Pre-import backup failed: $e');
+    }
     try {
       final data = jsonDecode(jsonString) as Map<String, dynamic>;
       

@@ -13,6 +13,7 @@ import '../services/sync_service.dart';
 import '../services/library_export_service.dart';
 import '../services/download_service.dart';
 import '../services/lan_sync_service.dart' show LanPeer;
+import '../services/backup_service.dart';
 import '../services/update_service.dart';
 import '../widgets/update_prompt.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -787,6 +788,96 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
     }
   }
 
+  /// List the rolling backups; tapping restore replaces the library with
+  /// that snapshot (after taking a fresh backup of the current state).
+  Future<void> _showBackups() async {
+    final backupService = BackupService(ref.read(storageProvider));
+    final backups = await backupService.listBackups();
+    if (!mounted) return;
+    if (backups.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('No backups yet — one is taken automatically '
+                'before imports, syncs and resets')),
+      );
+      return;
+    }
+    final restored = await showDialog<File>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Backups'),
+        content: SizedBox(
+          width: 460,
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              for (final f in backups)
+                ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.description),
+                  title: Text(f.uri.pathSegments.last
+                      .replaceFirst('ficbatch_backup_', '')
+                      .replaceFirst('.json', '')),
+                  subtitle: FutureBuilder<int>(
+                    future: f.length(),
+                    builder: (ctx, snap) => Text(snap.hasData
+                        ? '${(snap.data! / 1024).toStringAsFixed(0)} KB'
+                        : '…'),
+                  ),
+                  trailing: TextButton(
+                    onPressed: () => Navigator.pop(ctx, f),
+                    child: const Text('Restore'),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+    if (restored == null || !mounted) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Restore backup?'),
+        content: const Text(
+            'This replaces your current library, categories and history with '
+            'the snapshot. A backup of the current state is taken first, so '
+            'you can restore back.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Restore')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      final result = await backupService.restore(restored);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Restored: ${result.toSummary()}')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Restore failed: $e')),
+        );
+      }
+    }
+  }
+
   /// Clear the reading history list (works and downloads are untouched).
   Future<void> _clearReadingHistory() async {
     final confirmed = await showDialog<bool>(
@@ -866,6 +957,9 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
 
     try {
       final storage = ref.read(storageProvider);
+      // Last-chance snapshot (kept in the backups folder, which survives
+      // the reset) so even a reset is recoverable.
+      await BackupService(storage).createBackup('before-reset');
       await DownloadService.clearAllDownloads();
       await storage.clearAll(); // works box
       await storage.settingsBox.clear(); // categories, history, settings…
@@ -1386,6 +1480,16 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
               subtitle: const Text('View storage usage'),
               trailing: const Icon(Icons.chevron_right),
               onTap: _showStorageInfo,
+            ),
+
+            // Backups (rolling snapshots, restore)
+            ListTile(
+              leading: const Icon(Icons.settings_backup_restore),
+              title: const Text('Backups'),
+              subtitle: const Text(
+                  'Last 5 library snapshots — taken before imports, syncs '
+                  'and resets'),
+              onTap: _showBackups,
             ),
 
             // Clear reading history
