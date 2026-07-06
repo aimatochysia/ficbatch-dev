@@ -46,6 +46,37 @@ Worth hitting this round:
 
 ---
 
-## C. Anything else?
+## C. New ideas from this round (Claude's picks — tick any)
+
+- [ ] **C1. Uninstall-proof backups on Android (Recommended).** Backups
+      currently live in app-private storage — an uninstall (like the
+      signature switch you just did) deletes library AND backups. Option to
+      keep snapshots in a user-visible folder (Documents/FicBatch, using
+      the all-files permission folder sync already asks for). *(low)*
+- [ ] **C2. Import from any AO3 listing URL.** Paste a bookmarks page /
+      search / tag listing into batch import and it pulls every work id
+      (paginated) — turns "populate my library from my AO3 bookmarks" into
+      one paste. *(medium)*
+- [ ] C3. Chapter delta in Updates — show "+2 chapters" (old vs new count
+      is already stored) and make tapping a notification land on the
+      Updates tab. *(low)*
+- [ ] C4. Tag blocklist — never show works with chosen tags in browse
+      listings and the library (classic fandom squick filter; the injector
+      and filter row make this natural now). *(medium)*
+- [ ] C5. Settings in sync — include reader prefs/theme/filters in export
+      v3 so a new device restores *everything*, not just the library.
+      *(low)*
+- [ ] C6. New-device onboarding: "copy from a nearby device" step that
+      drives LAN sync during first run instead of starting empty. *(medium)*
+- [ ] C7. Reader find-in-work (search text within the open work, jump to
+      matches — pairs with the anchor JS). *(medium)*
+- [ ] C8. App icon/branding pass before the version creeps toward 1.0.
+      *(low, one-time)*
+
+→ ANSWER:
+
+---
+
+## D. Anything else?
 
 → ANSWER:
